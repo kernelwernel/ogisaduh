@@ -3,10 +3,15 @@ import { BotClient } from "../types";
 import { readdirSync } from "fs";
 import { join } from "path";
 
-const PREFIX = "$";
-const OGISADA_USER_ID = "550095505347051546";
+const PREFIX = process.env.PREFIX!;
+const OGISADA_USER_ID = process.env.TARGET_USER_ID!;
 
-const GIF_PATH = join(__dirname, "..", "..", "assets", "attachment.gif");
+const GIFS_DIR = join(__dirname, "..", "..", "assets");
+const GIFS = ["attachment.gif", "attachment2.gif", "attachment3.gif", "attachment4.gif"].map(f => join(GIFS_DIR, f));
+
+function randomGif(): string {
+  return GIFS[Math.floor(Math.random() * GIFS.length)];
+}
 const URL_REGEX = /https?:\/\/[^\s]+/;
 const MEDIA_DIR = join(__dirname, "..", "..", "reaction_media");
 const MEDIA_COOLDOWN_TRIGGERS = 15;
@@ -37,7 +42,7 @@ module.exports = {
 
     if (message.author.id === OGISADA_USER_ID && URL_REGEX.test(message.content)) {
       try {
-        await message.author.send({ files: [GIF_PATH] });
+        await message.author.send({ files: [randomGif()] });
         await message.reply({ files: [randomMedia()] });
       } catch {}
     }

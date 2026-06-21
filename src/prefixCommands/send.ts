@@ -9,7 +9,7 @@ const command: PrefixCommand = {
       return;
     }
     try {
-      const target = await message.client.users.fetch("550095505347051546");
+      const target = await message.client.users.fetch(process.env.TARGET_USER_ID!);
       await target.send(args.join(" "));
       await message.react("✅");
     } catch (err) {

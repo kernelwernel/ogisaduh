@@ -8,10 +8,10 @@ const command: PrefixCommand = {
       .setTitle("Commands")
       .setDescription(
         [
-          "`$ping` — check bot latency",
-          "`$status <text>` — change bot status",
-          "`$send <message>` — DM the target user",
-          "`$help` — show this message",
+          "`$ping`: check bot latency",
+          "`$status <text>`: change bot status",
+          "`$send <message>`: DM ogisada a message",
+          "`$help`: show this message",
         ].join("\n")
       )
       .setColor(0x5865f2);

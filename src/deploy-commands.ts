@@ -19,10 +19,6 @@ const rest = new REST().setToken(process.env.TOKEN!);
 
 (async () => {
   const clientId = process.env.CLIENT_ID!;
-  const guildId = process.env.GUILD_ID;
-  const route = guildId
-    ? Routes.applicationGuildCommands(clientId, guildId)
-    : Routes.applicationCommands(clientId);
-  const data = await rest.put(route, { body: commands }) as unknown[];
+  const data = await rest.put(Routes.applicationCommands(clientId), { body: commands }) as unknown[];
   console.log(`Registered ${data.length} command(s).`);
 })();
