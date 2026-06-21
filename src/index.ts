@@ -1,12 +1,13 @@
 import "dotenv/config";
-import { Client, Collection, GatewayIntentBits } from "discord.js";
+import { Client, Collection, GatewayIntentBits, Partials } from "discord.js";
 import { BotClient } from "./types";
 import { loadCommands } from "./handlers/commands";
 import { loadEvents } from "./handlers/events";
 import { loadPrefixCommands } from "./handlers/prefixCommands";
 
 const client = new Client({
-  intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent],
+  intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent, GatewayIntentBits.DirectMessages],
+  partials: [Partials.Channel],
 }) as BotClient;
 client.commands = new Collection();
 client.prefixCommands = new Collection();

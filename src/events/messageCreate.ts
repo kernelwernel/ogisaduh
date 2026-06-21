@@ -31,7 +31,9 @@ module.exports = {
   async execute(message: Message, client: BotClient) {
     if (message.author.bot) return;
 
-    console.log(`[${new Date().toLocaleTimeString()}] ${message.author.tag}: ${message.content}`);
+    if (message.channel.isDMBased()) {
+      console.log(`[${new Date().toLocaleTimeString()}] ${message.author.tag}: ${message.content}`);
+    }
 
     if (message.author.id === OGISADA_USER_ID && URL_REGEX.test(message.content)) {
       try {
