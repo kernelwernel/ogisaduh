@@ -11,6 +11,10 @@ const command: PrefixCommand = {
           "`$ping`: check bot latency",
           "`$status <text>`: change bot status",
           "`$send <message>`: DM ogisada a message",
+          "`$gif`: send a random ogisada gif",
+          "`$snipe [number]`: snipe the last deleted message",
+          "`$uptime`: show bot uptime",
+          "`$reload`: pull latest changes and restart",
           "`$help`: show this message",
         ].join("\n")
       )
