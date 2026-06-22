@@ -1,9 +1,4 @@
-import { SlashCommandBuilder, SlashCommandOptionsOnlyBuilder, ChatInputCommandInteraction, Client, Collection, Message } from "discord.js";
-
-export interface Command {
-  data: SlashCommandBuilder | SlashCommandOptionsOnlyBuilder | Omit<SlashCommandBuilder, "addSubcommand" | "addSubcommandGroup">;
-  execute(interaction: ChatInputCommandInteraction): Promise<void>;
-}
+import { Client, Collection, Message } from "discord.js";
 
 export interface PrefixCommand {
   name: string;
@@ -11,6 +6,5 @@ export interface PrefixCommand {
 }
 
 export interface BotClient extends Client {
-  commands: Collection<string, Command>;
   prefixCommands: Collection<string, PrefixCommand>;
 }

@@ -9,8 +9,10 @@ const OGISADA_USER_ID = process.env.TARGET_USER_ID!;
 const GIFS_DIR = join(__dirname, "..", "..", "assets");
 const GIFS = ["attachment.gif", "attachment2.gif", "attachment3.gif", "attachment4.gif"].map(f => join(GIFS_DIR, f));
 
+let gifPool: string[] = [];
 function randomGif(): string {
-  return GIFS[Math.floor(Math.random() * GIFS.length)];
+  if (gifPool.length === 0) gifPool = [...GIFS].sort(() => Math.random() - 0.5);
+  return gifPool.pop()!;
 }
 const URL_REGEX = /https?:\/\/[^\s]+/;
 const MEDIA_DIR = join(__dirname, "..", "..", "reaction_media");

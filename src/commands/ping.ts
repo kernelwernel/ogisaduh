@@ -1,13 +1,13 @@
-import { SlashCommandBuilder, ChatInputCommandInteraction, EmbedBuilder } from "discord.js";
-import { Command } from "../types";
+import { Message, EmbedBuilder, TextChannel } from "discord.js";
+import { PrefixCommand } from "../types";
 
-const command: Command = {
-  data: new SlashCommandBuilder().setName("ping").setDescription("Replies with pong"),
-  async execute(interaction: ChatInputCommandInteraction) {
+const command: PrefixCommand = {
+  name: "ping",
+  async execute(message: Message) {
     const embed = new EmbedBuilder()
-      .setDescription(`🏓 **Pong!** - ${Date.now() - interaction.createdTimestamp}ms`)
+      .setDescription(`🏓 **Pong!** - ${Date.now() - message.createdTimestamp}ms`)
       .setColor(0x27e462);
-    await interaction.reply({ embeds: [embed] });
+    await (message.channel as TextChannel).send({ embeds: [embed] });
   },
 };
 

@@ -1,20 +1,23 @@
 import "dotenv/config";
+
+const _stderr = process.stderr.write.bind(process.stderr);
+(process.stderr as any).write = (chunk: any, ...args: any[]) => {
+  if (typeof chunk === "string" && chunk.includes("Fontconfig")) return true;
+  return _stderr(chunk, ...args);
+};
 import { Client, Collection, GatewayIntentBits, Partials } from "discord.js";
 import { BotClient } from "./types";
-import { loadCommands } from "./handlers/commands";
 import { loadEvents } from "./handlers/events";
-import { loadPrefixCommands } from "./handlers/prefixCommands";
+import { loadCommands } from "./handlers/commands";
 
 const client = new Client({
   intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent, GatewayIntentBits.DirectMessages],
   partials: [Partials.Channel],
 }) as BotClient;
-client.commands = new Collection();
 client.prefixCommands = new Collection();
 
 (async () => {
   await loadCommands(client);
-  await loadPrefixCommands(client);
   await loadEvents(client);
   await client.login(process.env.TOKEN);
 })();

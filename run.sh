@@ -1,2 +1,4 @@
 #!/bin/bash
-npm run build && npm run deploy && npm run start
+while true; do
+  npm run build && npm run start
+done

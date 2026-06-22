@@ -6,11 +6,19 @@ const GIFS = ["attachment.gif", "attachment2.gif", "attachment3.gif", "attachmen
   join(__dirname, "..", "..", "assets", f)
 );
 
+let gifPool: string[] = [];
+
+function pickGif(): string {
+  if (gifPool.length === 0) {
+    gifPool = [...GIFS].sort(() => Math.random() - 0.5);
+  }
+  return gifPool.pop()!;
+}
+
 const command: PrefixCommand = {
   name: "gif",
   async execute(message: Message) {
-    const gif = GIFS[Math.floor(Math.random() * GIFS.length)];
-    await (message.channel as TextChannel).send({ files: [gif] });
+    await (message.channel as TextChannel).send({ files: [pickGif()] });
   },
 };
 
