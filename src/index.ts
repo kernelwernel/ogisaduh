@@ -20,4 +20,16 @@ client.prefixCommands = new Collection();
   await loadCommands(client);
   await loadEvents(client);
   await client.login(process.env.TOKEN);
+
+  client.on("error", err => console.error("[ws] error:", err));
+  client.on("warn", msg => console.warn("[ws] warn:", msg));
+
+  // watchdog: if the WebSocket ping goes dead, exit so run.sh restarts
+  setInterval(() => {
+    const ping = client.ws.ping;
+    if (ping === -1) {
+      console.error("[watchdog] WebSocket ping is -1, connection is dead — restarting");
+      process.exit(1);
+    }
+  }, 60_000);
 })();
