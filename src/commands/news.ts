@@ -1,29 +1,48 @@
 import { Message, TextChannel, AttachmentBuilder } from "discord.js";
 import { PrefixCommand } from "../types";
-import { createCanvas, loadImage, CanvasRenderingContext2D } from "canvas";
 import sharp from "sharp";
-import { readdirSync } from "fs";
 import { join } from "path";
+import { Worker } from "worker_threads";
+import { readFileSync, writeFileSync } from "fs";
 
 const TOPIC_IMAGES_DIR = join(__dirname, "..", "..", "topic_images");
 const PROFILE_IMG_PATH = join(__dirname, "..", "..", "assets", "profile.png");
 
-const TOPIC_KEYWORDS: string[] = [
-  "VMAWARE", "QEMU", "BATTLEYE", "VANGUARD", "FACEIT",
-  "RICOCHET", "VAC", "VALORANT", "ROBLOX",
-  "EAC", "HWID", "AUTOVIRT", "SMBIOS", "NVRAM", "MHYPROT",
-];
-
-function resolveTopicImage(headline: string): string | null {
-  const upper = headline.toUpperCase();
-  let files: string[];
-  try { files = readdirSync(TOPIC_IMAGES_DIR); } catch { return null; }
-  for (const keyword of TOPIC_KEYWORDS) {
-    if (!upper.includes(keyword)) continue;
-    const match = files.find(f => f.toLowerCase().startsWith(keyword.toLowerCase() + ".") || f.toLowerCase() === keyword.toLowerCase());
-    if (match) return join(TOPIC_IMAGES_DIR, match);
-  }
-  return null;
+function spawnRenderWorker(data: {
+  headline: string;
+  celebBuffer: Buffer;
+  topicImagesDir: string;
+  profileImgPath: string;
+  topicBuffer?: Buffer;
+}): Promise<Buffer> {
+  return new Promise((resolve, reject) => {
+    const isTS = __filename.endsWith(".ts");
+    const workerPath = isTS
+      ? join(__dirname, "../workers/newsRender.ts")
+      : join(__dirname, "../workers/newsRender.js");
+    const worker = new Worker(workerPath, {
+      workerData: data,
+      execArgv: isTS ? ["-r", "ts-node/register"] : [],
+      stderr: true,
+    });
+    worker.stderr?.on("data", (d: Buffer) => {
+      const s = d.toString();
+      if (!s.includes("Fontconfig")) console.error("[worker stderr]", s.trim());
+    });
+    let settled = false;
+    const settle = (fn: () => void) => { if (!settled) { settled = true; fn(); } };
+    worker.on("message", (msg: { buf?: Buffer; error?: string }) => {
+      settle(() => {
+        if (msg.error) reject(new Error(msg.error));
+        else resolve(Buffer.from(msg.buf!));
+      });
+    });
+    worker.on("error", (err) => { console.error("[worker error]", err); settle(() => reject(err)); });
+    worker.on("exit", code => {
+      if (code !== 0) console.error(`[worker] exited with code ${code}`);
+      settle(() => reject(new Error(`Render worker exited with code ${code} without sending result`)));
+    });
+  });
 }
 
 
@@ -66,14 +85,14 @@ const ENTRIES: { name: string; headline: string; colon?: boolean }[] = [
   { name: "Rihanna", headline: "{FAILS} LOW FILE ACCESS COUNT CHECK IN {FINAL} ROUND, SPENDS THREE HOURS {GOOGLING} WHAT A FILE ACCESS IS" },
   { name: "Lil Pump", headline: "{FAILS} VMAWARE {SEVEN} TIMES, STILL DOES NOT UNDERSTAND WHY" },
   { name: "6ix9ine", headline: "{SNITCHES} ON OWN VM SPOOF TO AVOID {LONGER} HWID BAN" },
-  { name: "Trippie Redd", headline: "{FAILS} KERNEL OBJECT CHECK LIVE ON DISCORD, {BLAMES} WINDOWS UPDATE AND THEN {BLAMES} HIS DOG" },
+  { name: "Trippie Redd", headline: "ROBLOX {BANS} ALL FIVE ACCOUNTS DURING ADOPT ME SESSION, {BLAMES} WINDOWS UPDATE AND THEN {BLAMES} HIS DOG" },
   { name: "Rick Ross", headline: "VMAWARE SCAN {DETECTS} QEMU BRAND ON BOSS GAMING PC, BLAMES HIS {INTERN}, INTERN ALSO GETS {BANNED}", colon: true },
   { name: "Meek Mill", headline: "{LOSES} BATTLEYE APPEAL FOR THE {THIRD} TIME THIS YEAR, DRAKE {TWEETS} ABOUT IT" },
   { name: "Lil Wayne", headline: "SAYS \"EAC IS THE REAL JAIL\" AFTER GETTING {HWID} {BANNED}" },
   { name: "Gucci Mane", headline: "VMAWARE CONFIRMED {TRUE} ON ALL {FOURTEEN} ACCOUNTS, IMMEDIATELY ATTEMPTS TO PURCHASE A {FIFTEENTH}", colon: true },
-  { name: "T-Pain", headline: "AUTOTUNES VMAWARE ERROR MESSAGE, STILL GETS {DETECTED} AND {BANNED}" },
-  { name: "Soulja Boy", headline: "CLAIMS HE {INVENTED} VM SPOOFING, COMMUNITY {DISAGREES}" },
-  { name: "Lil Jon", headline: "{SCREAMS} AT BATTLEYE FOR {FLAGGING} HIS HYPERVISOR QUERY" },
+  { name: "T-Pain", headline: "AUTOTUNES ROBLOX {BAN} NOTICE, STILL GETS {DETECTED} AND {BANNED}" },
+  { name: "Soulja Boy", headline: "CLAIMS HE {INVENTED} ROBLOX {EXPLOITING}, COMMUNITY POSTS {PROOF} HE DIDN'T" },
+  { name: "Lil Jon", headline: "{SCREAMS} AT ROBLOX SUPPORT FOR {BANNING} HIS EXECUTOR SCRIPT, SUPPORT {CLOSES} TICKET" },
   { name: "Pitbull", headline: "MR WORLDWIDE {FAILS} VM SPOOF IN {EVERY} REGION", colon: true },
   { name: "Taylor Swift", headline: "{FAILS} VMAWARE BYPASS IN FRONT OF {FORTY} THOUSAND FANS, SWIFTIES IMMEDIATELY {BLAME} KANYE" },
   { name: "Harry Styles", headline: "{DETECTED} BY BATTLEYE HYPERVISOR SCAN, {BANNED} FROM COMPETITIVE, FANS MAIL {GLITTER} TO DEVS", colon: true },
@@ -109,14 +128,14 @@ const ENTRIES: { name: string; headline: string; colon?: boolean }[] = [
   { name: "Machine Gun Kelly", headline: "ATTEMPTS VMAWARE {BYPASS} WHILE PUBLICLY FEUDING WITH EMINEM, GETS {CAUGHT} IMMEDIATELY, EMINEM {LAUGHS}" },
   { name: "Elvis Presley", headline: "ESTATE CONFIRMS HE {NEVER} BYPASSED BATTLEYE, {BANNED} POSTHUMOUSLY" },
   { name: "Michael Jackson", headline: "ESTATE {SUES} VMAWARE FOR {DETECTING} THRILLER GAMING PC" },
-  { name: "Freddie Mercury", headline: "GHOST ATTEMPTS QEMU BYPASS FROM BEYOND THE GRAVE, {FAILS} FIRMWARE CHECK, ENTIRE ESTATE {DEVASTATED}" },
+  { name: "Freddie Mercury", headline: "GHOST ATTEMPTS ROBLOX {EXPLOIT} FROM BEYOND THE GRAVE, {DETECTED} IMMEDIATELY, ENTIRE ESTATE {DEVASTATED}" },
   { name: "LeBron James", headline: "VMAWARE {DETECTED} DURING HALFTIME, {BLAMES} TEAMMATES", colon: true },
   { name: "Cristiano Ronaldo", headline: "{FAILS} BATTLEYE CHECK, SCREAMS \"SIUUU\", GETS {BANNED}" },
   { name: "Lionel Messi", headline: "{DETECTED} BY EAC DURING WORLD CUP CELEBRATION STREAM, GOAT STATUS {REVOKED}, RONALDO {LAUGHS} IN RESPONSE", colon: true },
   { name: "Conor McGregor", headline: "ATTEMPTS VMAWARE BYPASS AT 4AM WHILE DRUNK, {TAPS} OUT IN UNDER THIRTY SECONDS, POSTS ABOUT IT {ANYWAY}" },
   { name: "Floyd Mayweather", headline: "SPENDS {FIFTY} MILLION ON VM SPOOF, STILL {DETECTED} IN UNDER A SECOND, CELEBRATES {UNDEFEATED} RECORD ANYWAY" },
   { name: "Mike Tyson", headline: "{PUNCHES} MONITOR AFTER VMAWARE RETURNS VM LIKELINESS {100}" },
-  { name: "Jake Paul", headline: "{FAILS} NIKA-READ-ONLY BYPASS, CLAIMS HE STILL {WON}" },
+  { name: "Jake Paul", headline: "ROBLOX {BANS} EXPLOIT ACCOUNT, {CLAIMS} HE STILL {WON}" },
   { name: "Logan Paul", headline: "VMAWARE {DETECTS} HYPERVISOR, CHALLENGES DEVELOPER TO A {BOXING} MATCH, DEVELOPER {DECLINES}", colon: true },
   { name: "MrBeast", headline: "OFFERS {MILLION} DOLLARS TO BYPASS VMAWARE, {NOBODY} SUCCEEDS" },
   { name: "Elon Musk", headline: "SAYS \"VMAWARE IS {BASED}\" AFTER IT {DETECTS} HIS OWN PC" },
@@ -147,8 +166,8 @@ const ENTRIES: { name: string; headline: string; colon?: boolean }[] = [
   { name: "LeBron James", headline: "VANGUARD {BANS} ACCOUNT, SAYS IT WAS {GOAT} LEVEL UNFAIR", colon: true },
   { name: "Conor McGregor", headline: "VANGUARD {TAPS} HIM OUT IN UNDER TWO SECONDS, {BANNED}", colon: true },
   { name: "Floyd Mayweather", headline: "GOES {UNDEFEATED} IN BOXING, {LOSES} TO VANGUARD SCAN" },
-  { name: "MrBeast", headline: "GIVES AWAY GAMING PC, VANGUARD {DETECTS} VM ON ALL {FIVE}" },
-  { name: "Gordon Ramsay", headline: "CALLS VANGUARD BYPASS ATTEMPT \"{RAW}\", {BANNED} FROM LOBBY" },
+  { name: "MrBeast", headline: "GIVES AWAY ROBLOX ACCOUNT, ALL FIVE {BANNED} FOR {EXPLOITING} BEFORE WINNERS EVEN {CLAIM} THEM" },
+  { name: "Gordon Ramsay", headline: "CALLS ROBLOX EXECUTOR SCRIPT \"ABSOLUTELY {RAW}\", {BANNED} FROM LOBBY IMMEDIATELY" },
   { name: "Tom Cruise", headline: "VANGUARD {CATCHES} HYPERVISOR DURING RANKED MATCH, {BANNED} MID CUTSCENE IN FRONT OF THE ENTIRE {LOBBY}", colon: true },
   { name: "Freddie Mercury", headline: "\"BOHEMIAN {BANNED}\", VANGUARD {CAUGHT} THE HYPERVISOR" },
   { name: "Metallica", headline: "\"MASTER OF {BANNED}\", VANGUARD {DETECTS} QEMU ON TOUR BUS" },
@@ -156,107 +175,112 @@ const ENTRIES: { name: string; headline: string; colon?: boolean }[] = [
   { name: "Charli XCX", headline: "VANGUARD \"{BRAT}\" {DETECTED} AND ACCOUNT {BANNED}, POSTS TWENTY-TWEET UNHINGED RESPONSE CALLING DEVS {LOSERS}", colon: true },
   { name: "Hozier", headline: "\"TAKE ME TO {BANNED}\", VANGUARD {DETECTS} QEMU INSTANCE" },
   { name: "Lil Jon", headline: "\"TURN {DOWN} FOR WHAT\", VANGUARD {BANS} ACCOUNT ANYWAY, RESPONDS BY {SCREAMING} AT SUPPORT FOR TWO HOURS" },
-  { name: "Rick Ross", headline: "\"EVERYDAY I'M {BANNED}\", VANGUARD {DETECTS} BOSS VM" },
-  { name: "Lil Pump", headline: "VANGUARD {CATCHES} HIM FOR THE {FOURTH} TIME THIS MONTH, STILL HAS NO IDEA WHAT A HYPERVISOR IS", colon: true },
-  { name: "Demi Lovato", headline: "VANGUARD IS {MERCILESS}, HYPERVISOR {DETECTED} IMMEDIATELY", colon: true },
+  { name: "Rick Ross", headline: "ROBLOX {CATCHES} BOSS EXECUTOR SCRIPT, BLAMES {INTERN}, INTERN ALSO GETS {BANNED}" },
+  { name: "Lil Pump", headline: "ROBLOX {CATCHES} HIM FOR THE {FOURTH} TIME THIS MONTH, STILL HAS NO IDEA WHAT AN EXECUTOR IS", colon: true },
+  { name: "Demi Lovato", headline: "ROBLOX IS {MERCILESS}, EXPLOIT SCRIPT {DETECTED} IMMEDIATELY", colon: true },
   { name: "Miley Cyrus", headline: "VANGUARD COMES IN LIKE A \"{WRECKING} BALL\", {BANNED}", colon: true },
   { name: "Arnold Schwarzenegger", headline: "VANGUARD {TERMINATED} HIS ACCOUNT, \"WILL NOT BE {BACK}\"", colon: true },
   { name: "Lil Uzi Vert", headline: "VANGUARD {DETECTS} VM ON ALL ACCOUNTS, {CRIES} FOR SEVENTEEN HOURS STRAIGHT", colon: true },
   { name: "Kendrick Lamar", headline: "\"NOT LIKE {US}\", BUT VANGUARD STILL {DETECTS} THE HYPERVISOR" },
 
   // FACEIT entries
-  { name: "Kanye West", headline: "SPENDS {MILLIONS} ON CUSTOM PC, MHYPROT STILL {DETECTS} IT" },
+  { name: "Kanye West", headline: "SPENDS {MILLIONS} ON CUSTOM PC, MHYPROT {BSODS} IT ON FIRST {LAUNCH}" },
   { name: "Eminem", headline: "WRITES EIGHT MILE {VERSE} ABOUT {FAILING} FACEIT CHECK" },
   { name: "Lil Wayne", headline: "CALLS FACEIT \"THE CARTER FIVE OF {ANTICHEAT}\", STILL GETS {BANNED}" },
   { name: "Offset", headline: "{CAUGHT} BY FACEIT WITH HYPERVISOR RUNNING ON SECOND ACCOUNT, {BANNED} IMMEDIATELY, THIRD ACCOUNT {PENDING}" },
   { name: "Playboi Carti", headline: "\"WHOLE LOTTA VM {DETECTED}\", FACEIT SAYS \"WHOLE LOTTA {BANNED}\"" },
-  { name: "Olivia Rodrigo", headline: "MHYPROT {KILLS} HER MAIN ACCOUNT IN A {BRUTAL} SCAN, SECOND ACCOUNT {BANNED} THREE MINUTES LATER SAME DAY", colon: true },
-  { name: "Doja Cat", headline: "MHYPROT {EXPOSES} QEMU BUILD LIVE ON TWITCH, {BANNED}", colon: true },
+  { name: "Olivia Rodrigo", headline: "MHYPROT {BSODS} PC MID RANKED MATCH, COMES BACK ON LAPTOP, {BSODS} THAT {TOO}", colon: true },
+  { name: "Doja Cat", headline: "FACEIT {CATCHES} AUTOVIRT DURING RANKED, {BLAMES} CHAT, CHAT {DISAGREES}", colon: true },
   { name: "Ed Sheeran", headline: "FACEIT SCAN {RUINS} GAMING SESSION, ACCUSES OPPONENT OF {CHEATING}, GETS HWID {BANNED} INSTEAD", colon: true },
-  { name: "Justin Bieber", headline: "\"SORRY\", MHYPROT {DETECTED} THE HYPERVISOR, {BANNED}" },
-  { name: "Lady Gaga", headline: "MHYPROT {DETECTS} VM, \"POKER FACE\" CANNOT {HIDE} IT", colon: true },
+  { name: "Justin Bieber", headline: "FACEIT {BANS} ACCOUNT BEFORE MATCH EVEN {LOADS}", colon: true },
+  { name: "Lady Gaga", headline: "FACEIT SCAN {COMPLETE}, VM {CONFIRMED}, HWID {BANNED}", colon: true },
   { name: "Rihanna", headline: "\"WORK, WORK, WORK\", FACEIT STILL {DETECTS}, STILL {BANNED}" },
   { name: "Jay-Z", headline: "\"NINETY-NINE {PROBLEMS}\", FACEIT {DETECTION} IS ALL OF THEM", colon: true },
-  { name: "Eminem", headline: "\"LOSES HIMSELF\" IN MHYPROT {SCAN}, ACCOUNT {TERMINATED}" },
+  { name: "Eminem", headline: "FACEIT {DETECTS} VM ON THIRD ACCOUNT, THIRD DISS TRACK INCOMING, DEVS {UNBOTHERED}" },
   { name: "Lionel Messi", headline: "FACEIT SCAN SHOWS {DETECTED}, GOAT STATUS UNDER {REVIEW}", colon: true },
-  { name: "Jake Paul", headline: "MHYPROT {BEATS} HIM AGAIN, CLAIMS SCAN WAS {RIGGED}", colon: true },
-  { name: "Elon Musk", headline: "BUYS MHYPROT TO {DELETE} HIS BAN, STILL GETS {DETECTED}" },
+  { name: "Jake Paul", headline: "FACEIT {CATCHES} HYPERVISOR MID STREAM, {CLAIMS} IT WAS A HACKER, CHAT {DISAGREES}", colon: true },
+  { name: "Elon Musk", headline: "BUYS GENSHIN COMPANY TO {FIX} MHYPROT, PC {BSODS} DURING THE ACQUISITION ANNOUNCEMENT" },
   { name: "Keanu Reeves", headline: "{BANNED} BY FACEIT FOR VM USE, FANS BUILD {MEMORIAL} OUTSIDE ANTICHEAT HEADQUARTERS, DEVS {CONFUSED}" },
   { name: "Will Smith", headline: "FACEIT {BANS} HIM AGAIN, {SLAPS} MONITOR IN RESPONSE", colon: true },
-  { name: "Michael Jackson", headline: "MHYPROT {DETECTS} THRILLER GAMING PC, ESTATE {SUES}", colon: true },
+  { name: "Michael Jackson", headline: "MHYPROT {BSODS} THRILLER GAMING PC, ESTATE {SUES}", colon: true },
   { name: "Green Day", headline: "\"WAKE ME UP WHEN {FACEIT} {ENDS}\", SAYS BANNED MEMBER" },
-  { name: "Fall Out Boy", headline: "\"CENTURIES\" OF TRYING, MHYPROT {BANS} THEM {EVERY} TIME" },
+  { name: "Fall Out Boy", headline: "FACEIT {BANS} ENTIRE BAND SIMULTANEOUSLY, RELEASES STATEMENT, STATEMENT {IGNORED}" },
   { name: "Sabrina Carpenter", headline: "FACEIT {CATCHES} HYPERVISOR, \"SHORT N SWEET\" {BAN} ISSUED", colon: true },
-  { name: "Lizzo", headline: "FACEIT \"{TRUTH} HURTS\", HYPERVISOR {DETECTED} ON MAIN", colon: true },
+  { name: "Lizzo", headline: "ROBLOX {BANS} MAIN ACCOUNT MID TOWER OF HELL RUN, FILES {FORMAL} COMPLAINT, COMPLAINT {DENIED}", colon: true },
   { name: "Machine Gun Kelly", headline: "FACEIT {CATCHES} MGK ON MAIN AND SMURF ACCOUNT, PETE DAVIDSON {LAUGHS}, MEGAN FOX {FILES} DIVORCE PAPERS", colon: true },
-  { name: "Gucci Mane", headline: "FACEIT {BRICKS} HIS GAMING PC, {BANNED} SEVENTEEN TIMES", colon: true },
-  { name: "Trippie Redd", headline: "FACEIT {TRIPS} HIS ACCOUNT, {BANNED} FROM COMPETITIVE", colon: true },
+  { name: "Gucci Mane", headline: "ROBLOX {BRICKS} HIS GAMING ACCOUNT, {BANNED} SEVENTEEN TIMES", colon: true },
+  { name: "Trippie Redd", headline: "ROBLOX {TRIPS} HIS ACCOUNT DURING JAILBREAK SESSION, {BANNED} FROM ALL SERVERS", colon: true },
   { name: "Jack Harlow", headline: "ATTEMPTS TO BUY \"{FIRST} CLASS\" ANTICHEAT BYPASS, FACEIT {DETECTS} IT IMMEDIATELY, {BANNED} BEFORE MATCH STARTS", colon: true },
-  { name: "Charlie Puth", headline: "FACEIT \"{ATTENTION}\", SCAN RETURNS {DETECTED} IMMEDIATELY, PULLS LAPTOP OUT MID-CONCERT TO CHECK {BAN} NOTICE", colon: true },
-  { name: "Sylvester Stallone", headline: "ROCKY {LOSES} TO MHYPROT, {BANNED} IN EVERY ROUND" },
-  { name: "Tyler the Creator", headline: "FACEIT \"{IGOR}\" SCAN RETURNS {DETECTED}, {BANNED} AGAIN", colon: true },
+  { name: "Charlie Puth", headline: "ROBLOX EXPLOIT {DETECTED} IMMEDIATELY, PULLS LAPTOP OUT MID-CONCERT TO CHECK {BAN} NOTICE, CROWD {WATCHES}", colon: true },
+  { name: "Sylvester Stallone", headline: "FACEIT {WINS}, STALLONE CLAIMS HE {LET} IT WIN, FACEIT DEVS {DISAGREE}", colon: true },
+  { name: "Tyler the Creator", headline: "ROBLOX {CATCHES} EXECUTOR SCRIPT ON THIRD ACCOUNT, {BANNED} AGAIN, {TWEETS} AT DEVS, GETS {BLOCKED}", colon: true },
 
   // RICOCHET entries
   { name: "Cardi B", headline: "GOES {OFFSET} TRYING TO {BYPASS} RICOCHET CHECK, CALLS ANTICHEAT HELPDESK AND {THREATENS} LEGAL ACTION LIVE" },
-  { name: "Future", headline: "\"{MASK} OFF\", HYPERVISOR {DETECTED} BY MHYPROT SCAN" },
-  { name: "Gunna", headline: "WALKS IN ON MHYPROT SCAN {COMPLETING}, {BANNED} LIVE ON STREAM" },
+  { name: "Future", headline: "RICOCHET {DETECTS} VM IMMEDIATELY, {CLAIMS} IT WAS A SETUP, RICOCHET {DISAGREES}" },
+  { name: "Gunna", headline: "RICOCHET {CATCHES} QEMU INSTANCE LIVE ON STREAM, WALKS AWAY FROM PC MID-{GAME}, {NEVER} COMES BACK" },
   { name: "Billie Eilish", headline: "{BANNED} FROM RANKED, SAYS RICOCHET IS \"{BAD} GUY\"" },
-  { name: "SZA", headline: "MHYPROT {FINDS} HYPERVISOR IMMEDIATELY ON FIRST SCAN, {QUITS} COMPETITIVE AND {DELETES} ALL GAMING ACCOUNTS", colon: true },
+  { name: "SZA", headline: "RICOCHET {BANS} ACCOUNT ON FIRST BOOT, {QUITS} GAMING AND {DELETES} ALL ACCOUNTS", colon: true },
   { name: "Shawn Mendes", headline: "\"STITCHES\" ON RICOCHET REPORT SHOW {DETECTED}, HWID {BANNED}" },
   { name: "Katy Perry", headline: "{ROARS} AT RICOCHET DEVELOPER DURING PRESS CONFERENCE AFTER HWID {BAN} ON {ALL} THREE ACCOUNTS SIMULTANEOUSLY" },
   { name: "Dr. Dre", headline: "STILL {BANNED}, RICOCHET FOUND QEMU ON {COMPTON} GAMING PC" },
-  { name: "Cristiano Ronaldo", headline: "MHYPROT {DETECTED} HYPERVISOR, CR7 {CRIES} IN PRESS CONFERENCE", colon: true },
-  { name: "Mike Tyson", headline: "MHYPROT {KNOCKS} OUT HIS ACCOUNT, {BANNED} IN FIRST ROUND", colon: true },
-  { name: "Logan Paul", headline: "POSTS MHYPROT {BAN} CLIP TO YOUTUBE, STILL GETS {MOCKED}" },
-  { name: "Ryan Reynolds", headline: "MHYPROT {RUINS} GAMING SPONSOR DEAL, {BANNED} ON CAMERA", colon: true },
+  { name: "Cristiano Ronaldo", headline: "MHYPROT {BSODS} PC, CR7 {CRIES} IN PRESS CONFERENCE", colon: true },
+  { name: "Mike Tyson", headline: "MHYPROT {BSODS} PC, {PUNCHES} MONITOR BEFORE IT FINISHES REBOOTING", colon: true },
+  { name: "Logan Paul", headline: "RICOCHET {CATCHES} HYPERVISOR, CHALLENGES DEVELOPER TO A {BOXING} MATCH, DEVELOPER {DECLINES}" },
+  { name: "Ryan Reynolds", headline: "RICOCHET {BANS} ACCOUNT DURING GAMING SPONSOR SHOOT, {RUINS} ENTIRE CAMPAIGN", colon: true },
   { name: "Dwayne Johnson", headline: "BODY {SLAMS} GAMING RIG AFTER RICOCHET {BANS} ALL ACCOUNTS, VOWS TO FIGHT DEVELOPERS IN THE {SQUARED} CIRCLE" },
-  { name: "Elvis Presley", headline: "MHYPROT {BANS} ESTATE ACCOUNT, ELVIS HAS {LEFT} THE LOBBY", colon: true },
+  { name: "Elvis Presley", headline: "RICOCHET {BANS} ESTATE ACCOUNT, ESTATE {SUES}, SUIT {DISMISSED}", colon: true },
   { name: "Linkin Park", headline: "\"IN THE {END}\", RICOCHET {CAUGHT} THE HYPERVISOR ANYWAY" },
-  { name: "Coldplay", headline: "\"THE {SCIENTIST}\" CANNOT {BYPASS} RICOCHET, {BANNED} AGAIN" },
-  { name: "Halsey", headline: "MHYPROT {HAUNTS} HER ACCOUNT, {BANNED} FROM ALL REGIONS", colon: true },
+  { name: "Coldplay", headline: "ROBLOX {CATCHES} ENTIRE BAND SCRIPTING SIMULTANEOUSLY, ALL ACCOUNTS {TERMINATED}, RELEASES STATEMENT CALLING IT {UNJUST}" },
+  { name: "Halsey", headline: "RICOCHET {BANS} ACCOUNT TWICE IN ONE SESSION, {NEVER} RETURNS TO RANKED", colon: true },
   { name: "Jason Derulo", headline: "RICOCHET {DROPS} HIM LIKE A HIT, {BANNED} INSTANTLY", colon: true },
-  { name: "Meek Mill", headline: "RICOCHET \"DREAMS AND {NIGHTMARES}\", {CAUGHT} ON THIRD ACCOUNT", colon: true },
-  { name: "Chief Keef", headline: "RICOCHET {FINALLY} CATCHES CHIEF, ALL ACCOUNTS {BANNED}", colon: true },
-  { name: "Polo G", headline: "RICOCHET {POPS} OFF AND {CATCHES} HYPERVISOR ON FIRST SCAN, ALL FOURTEEN ACCOUNTS {TERMINATED} WITHOUT WARNING", colon: true },
-  { name: "Camila Cabello", headline: "RICOCHET {CATCHES} HER CRYING, {BANNED} FROM ALL SERVERS", colon: true },
+  { name: "Meek Mill", headline: "ROBLOX {CATCHES} EXPLOIT ON THIRD ACCOUNT, DRAKE {TWEETS} ABOUT IT", colon: true },
+  { name: "Chief Keef", headline: "ROBLOX {FINALLY} CATCHES CHIEF SCRIPTING IN JAILBREAK, ALL ACCOUNTS {BANNED}", colon: true },
+  { name: "Polo G", headline: "ROBLOX {POPS} OFF AND {CATCHES} EXPLOIT ON FIRST SCAN, ALL FOURTEEN ACCOUNTS {TERMINATED} WITHOUT WARNING", colon: true },
+  { name: "Camila Cabello", headline: "ROBLOX {CATCHES} HER SCRIPTING IN BROOKHAVEN, {BANNED} FROM ALL SERVERS", colon: true },
   { name: "Mark Zuckerberg", headline: "RICOCHET {DETECTS} HUMAN EMULATION SOFTWARE, {BANNED}", colon: true },
-  { name: "Johnny Depp", headline: "MHYPROT {RULES} AGAINST HIM FOR THE FIFTH TIME, {BANNED} FROM ALL SERVERS, AMBER HEARD {CELEBRATES} ON TWITTER", colon: true },
+  { name: "Johnny Depp", headline: "MHYPROT {BSODS} PC FOR THE FIFTH TIME, SYSTEM RESTORE {FAILS}, AMBER HEARD {CELEBRATES} ON TWITTER", colon: true },
 
   // VAC entries
-  { name: "21 Savage", headline: "{CAUGHT} RUNNING QEMU ON MAIN RIG, MHYPROT {DETECTS} IMMEDIATELY" },
+  { name: "21 Savage", headline: "NOT EVEN {CHEATING}, MHYPROT {BSODS} BARE METAL RIG WITHOUT {WARNING}" },
   { name: "Lil Baby", headline: "VAC {WAVE} HITS, ACCOUNT {TERMINATED} WITH NO APPEAL", colon: true },
-  { name: "Ariana Grande", headline: "MHYPROT SCAN RETURNS {TRUE}, \"THANK YOU, {NEXT}\", ACCOUNT ALSO {BANNED}", colon: true },
-  { name: "Sam Smith", headline: "MHYPROT {DETECTS} KERNEL DRIVER, {BANNED} IN UNHOLY FASHION", colon: true },
-  { name: "Ice Cube", headline: "\"TODAY WAS A GOOD DAY\" UNTIL MHYPROT {DETECTED} THE {HYPERVISOR}" },
-  { name: "Kevin Hart", headline: "MHYPROT {DETECTED} ON SECOND ACCOUNT IN ONE WEEK, {SCREAMS} AT MONITOR FOR TWENTY MINUTES ON STREAM", colon: true },
-  { name: "Blink-182", headline: "\"ALL THE SMALL THINGS\" GET {DETECTED}, VAC {WAVE} CONFIRMED" },
-  { name: "Imagine Dragons", headline: "\"BELIEVER\" IN VM SPOOFING FOR {SEVEN} YEARS STRAIGHT, VAC {WAVE} COMES OUT OF NOWHERE AND {CATCHES} EVERYTHING" },
+  { name: "Ariana Grande", headline: "VAC {WAVE} HITS MAIN ACCOUNT, BUYS NEW PC, {WAVE} {HITS} THAT TOO", colon: true },
+  { name: "Sam Smith", headline: "VAC {WAVE} HITS, ACCOUNT {TERMINATED} BEFORE FIRST MATCH EVEN {STARTS}", colon: true },
+  { name: "Ice Cube", headline: "VAC {WAVE} DESTROYS MAIN ACCOUNT, {CLAIMS} HE WAS JUST {SPECTATING}" },
+  { name: "Kevin Hart", headline: "MHYPROT {BSODS} PC FOR THE SECOND TIME IN ONE WEEK, {SCREAMS} AT MONITOR FOR TWENTY MINUTES ON STREAM", colon: true },
+  { name: "Blink-182", headline: "ROBLOX ANTICHEAT {CATCHES} ENTIRE BAND MID-SESSION, ALL ACCOUNTS {BANNED}, RELEASES SONG ABOUT IT, STILL {BANNED}" },
+  { name: "Imagine Dragons", headline: "ROBLOX {BANS} ENTIRE BAND SIMULTANEOUSLY DURING LIVE TOURNAMENT STREAM, CROWD GOES COMPLETELY {SILENT}" },
   { name: "Soulja Boy", headline: "VAC {WAVE}, \"{WATCH} ME\", GETS {DETECTED} IMMEDIATELY", colon: true },
-  { name: "T-Pain", headline: "\"I GOT A {BAN}\" FROM MHYPROT, {DETECTED} ON ALL ACCOUNTS" },
-  { name: "NBA YoungBoy", headline: "MHYPROT {SCAN}, \"{NEVER} BROKE AGAIN\", {BANNED} SEVEN ACCOUNTS", colon: true },
+  { name: "T-Pain", headline: "VAC {WAVE} CONFIRMED ON THIRD ACCOUNT, DEVS SEND PERSONAL {CONGRATULATIONS} ON THE {CONSISTENCY}" },
+  { name: "NBA YoungBoy", headline: "VAC {WAVE} HITS BACKUP ACCOUNT, ALL {SEVENTEEN} ACCOUNTS NOW BANNED", colon: true },
   { name: "DaBaby", headline: "\"LETS {GO}\", VAC {WAVE} DETECTS HYPERVISOR IMMEDIATELY" },
   { name: "Pitbull", headline: "\"GIVE ME {EVERYTHING}\" EXCEPT A VAC {WAVE}, STATEMENT {IGNORED} BY DEVS, ALL NINE ACCOUNTS {BANNED} ANYWAY", colon: true },
-  { name: "Lil Durk", headline: "VAC {WAVE} OF REASON, {CATCHES} HYPERVISOR INSTANTLY", colon: true },
-  { name: "Selena Gomez", headline: "VAC {WAVE} SAYS {NOBODY} BYPASSES IT, {BANNED} AGAIN", colon: true },
+  { name: "Lil Durk", headline: "ROBLOX {BANS} EXECUTOR ATTEMPT IN UNDER A SECOND, {CAUGHT} INSTANTLY", colon: true },
+  { name: "Selena Gomez", headline: "ROBLOX SAYS {NOBODY} BYPASSES ITS ANTICHEAT, PROVES IT BY {BANNING} ALL FIVE {ACCOUNTS}", colon: true },
   { name: "ASAP Rocky", headline: "VAC {WAVE} {FINDS} LAPTOP AT CUSTOMS, {BANNED} ON THE SPOT", colon: true },
-  { name: "6ix9ine", headline: "{SNITCHES} ON OWN HYPERVISOR TO AVOID MHYPROT {PERMABAN}" },
+  { name: "6ix9ine", headline: "{SNITCHES} ON OWN VM SPOOF TO AVOID VAC {WAVE}, GETS HWID {BANNED} ANYWAY" },
   { name: "Nicki Minaj", headline: "PLAYS GENSHIN ON BARE METAL, MHYPROT {BSODS} PC WITHOUT WARNING, WASN'T EVEN {CHEATING}", colon: true },
 ];
+
+async function fetchWithTimeout(url: string, opts: RequestInit = {}, ms = 8000): Promise<Response> {
+  const ac = new AbortController();
+  const timer = setTimeout(() => ac.abort(), ms);
+  try { return await fetch(url, { ...opts, signal: ac.signal }); } finally { clearTimeout(timer); }
+}
 
 async function fetchCelebrityImage(name: string): Promise<Buffer> {
   const query = encodeURIComponent(`${name} celebrity portrait headshot`);
 
-  // step 1: get vqd token from DDG
-  const htmlRes = await fetch(`https://duckduckgo.com/?q=${query}&iax=images&ia=images`, {
-    headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36" },
-  });
+  const htmlRes = await fetchWithTimeout(
+    `https://duckduckgo.com/?q=${query}&iax=images&ia=images`,
+    { headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36" } }
+  );
   const html = await htmlRes.text();
   const vqdMatch = html.match(/vqd=([\d-]+)/);
   if (!vqdMatch) throw new Error("Could not extract vqd token");
   const vqd = vqdMatch[1];
 
-  // step 2: fetch image results
-  const apiRes = await fetch(
+  const apiRes = await fetchWithTimeout(
     `https://duckduckgo.com/i.js?q=${query}&o=json&vqd=${vqd}&f=,,,,,&p=1`,
     { headers: { "User-Agent": "Mozilla/5.0", "Referer": "https://duckduckgo.com/" } }
   );
@@ -264,12 +288,11 @@ async function fetchCelebrityImage(name: string): Promise<Buffer> {
   const results: { image: string }[] = data.results ?? [];
   if (!results.length) throw new Error("No image results found");
 
-  // step 3: try each result until one converts cleanly
   for (const result of results.slice(0, 5)) {
     const url = result.image;
     if (!url || url.endsWith(".svg") || url.endsWith(".gif")) continue;
     try {
-      const imgRes = await fetch(url, { headers: { "User-Agent": "Mozilla/5.0" } });
+      const imgRes = await fetchWithTimeout(url, { headers: { "User-Agent": "Mozilla/5.0" } });
       const contentType = imgRes.headers.get("content-type") ?? "";
       if (contentType.includes("svg") || contentType.includes("html") || contentType.includes("text")) continue;
       const raw = Buffer.from(await imgRes.arrayBuffer());
@@ -281,188 +304,91 @@ async function fetchCelebrityImage(name: string): Promise<Buffer> {
   throw new Error("No usable image found in results");
 }
 
-const stripMarkers = (word: string) => word.replace(/[{}]/g, "");
-const isRed = (word: string) => word.startsWith("{") && word.endsWith("}");
+const HISTORY_SIZE = 50;
+const HISTORY_PATH = join(__dirname, "..", "..", "data", "news_history.json");
 
-function wrapText(ctx: CanvasRenderingContext2D, text: string, maxWidth: number): string[] {
-  const words = text.split(" ");
-  const lines: string[] = [];
-  let line = "";
-  for (const word of words) {
-    const clean = stripMarkers(word);
-    const testClean = line ? `${stripMarkers(line)} ${clean}` : clean;
-    const test = line ? `${line} ${word}` : word;
-    if (ctx.measureText(testClean).width > maxWidth && line) {
-      lines.push(line);
-      line = word;
-    } else {
-      line = test;
-    }
-  }
-  if (line) lines.push(line);
-  return lines;
+let activeWorkers = 0;
+const MAX_WORKERS = 2;
+
+function loadHistory(): string[] {
+  try { return JSON.parse(readFileSync(HISTORY_PATH, "utf8")); } catch { return []; }
 }
 
-const NEWS_COOLDOWN = 50;
-const recentlyUsed = new Map<string, number>();
-let useCount = 0;
+function saveHistory(history: string[]): void {
+  try { writeFileSync(HISTORY_PATH, JSON.stringify(history)); } catch {}
+}
+
+let recentHistory: string[] = loadHistory();
+
+async function fetchAttachmentBuffer(url: string): Promise<Buffer> {
+  const res = await fetchWithTimeout(url, { headers: { "User-Agent": "Mozilla/5.0" } });
+  const raw = Buffer.from(await res.arrayBuffer());
+  return sharp(raw).png().toBuffer();
+}
 
 const command: PrefixCommand = {
   name: "news",
-  async execute(message: Message) {
+  async execute(message: Message, args: string[]) {
     const channel = message.channel as TextChannel;
+    if (activeWorkers >= MAX_WORKERS) {
+      await message.reply("Too many articles generating at once, try again in a moment.");
+      return;
+    }
+
+    const customHeadline = args.join(" ").trim() || null;
+    const imageAttachments = [...message.attachments.values()].filter(a =>
+      a.contentType?.startsWith("image/") ?? false
+    );
+    const imageAttachment = imageAttachments[0] ?? null;
+    const topicAttachment = imageAttachments[1] ?? null;
+    const isCustom = !!(customHeadline || imageAttachment);
+
     const thinking = await channel.send("Generating article...");
 
     try {
-      useCount++;
-      const pool = ENTRIES.filter(e => {
-        const last = recentlyUsed.get(e.name);
-        return last === undefined || useCount - last >= NEWS_COOLDOWN;
-      });
-      const available = pool.length > 0 ? pool : ENTRIES;
-      const entry = available[Math.floor(Math.random() * available.length)];
-      recentlyUsed.set(entry.name, useCount);
-      const headline = entry.colon
-        ? `${entry.name.toUpperCase()}: ${entry.headline}`
-        : `${entry.name.toUpperCase()} ${entry.headline}`;
+      activeWorkers++;
 
-      const celebBuffer = await fetchCelebrityImage(entry.name);
-      const celeb = await loadImage(celebBuffer);
+      let headline: string;
+      let celebBuffer: Buffer;
+      let topicBuffer: Buffer | undefined;
 
-      const W = 1080;
-      const photoH = 648;
-      const badgePadding = 28, badgeH = 36, headlinePadTop = 54, lineH = 66;
-      const H = 1200; // oversized; cropped after render
-
-      const canvas = createCanvas(W, H);
-      const ctx = canvas.getContext("2d");
-
-      ctx.fillStyle = "#111";
-      ctx.fillRect(0, 0, W, H);
-
-      // celebrity photo — left half, top 60%
-      const topicImagePath = resolveTopicImage(headline);
-
-      if (topicImagePath) {
-        // split layout: celebrity left half, topic image right half
-        ctx.save();
-        ctx.rect(0, 0, Math.floor(W * 0.50), photoH);
-        ctx.clip();
-        const scale = Math.max((W * 0.50) / celeb.width, photoH / celeb.height);
-        const cx = (W * 0.50 - celeb.width * scale) / 2;
-        const cy = (photoH - celeb.height * scale) / 2;
-        ctx.drawImage(celeb, cx, cy, celeb.width * scale, celeb.height * scale);
-        ctx.restore();
-
-        const panelX = Math.floor(W * 0.50) + 10;
-        const panelY = 10;
-        const panelW = W - panelX - 10;
-        const panelH = photoH - 20;
-        ctx.fillStyle = "#0d0d0d";
-        ctx.fillRect(panelX, panelY, panelW, panelH);
-        const topicImgBuf = await sharp(topicImagePath).png().toBuffer();
-        const topicImg = await loadImage(topicImgBuf);
-        const tScale = panelW / topicImg.width;
-        const tW = topicImg.width * tScale;
-        const tH = topicImg.height * tScale;
-        const tX = panelX + (panelW - tW) / 2;
-        const tY = panelY + (panelH - tH) / 2;
-        ctx.drawImage(topicImg, tX, tY, tW, tH);
-
-        // horizontal gradient blending celebrity into topic image
-        const blendW = 120;
-        const blendX = Math.floor(W * 0.50) - blendW;
-        const hGrad = ctx.createLinearGradient(blendX, 0, blendX + blendW, 0);
-        hGrad.addColorStop(0, "rgba(13,13,13,0)");
-        hGrad.addColorStop(1, "rgba(13,13,13,1)");
-        ctx.fillStyle = hGrad;
-        ctx.fillRect(blendX, 0, blendW, photoH);
+      if (isCustom) {
+        headline = customHeadline ?? "";
+        celebBuffer = imageAttachment
+          ? await fetchAttachmentBuffer(imageAttachment.url)
+          : await fetchCelebrityImage(
+              ENTRIES[Math.floor(Math.random() * ENTRIES.length)].name
+            );
+        if (topicAttachment) topicBuffer = await fetchAttachmentBuffer(topicAttachment.url);
       } else {
-        // no topic image: celebrity spans full width
-        ctx.save();
-        ctx.rect(0, 0, W, photoH);
-        ctx.clip();
-        const scale = Math.max(W / celeb.width, photoH / celeb.height);
-        const cx = (W - celeb.width * scale) / 2;
-        const cy = (photoH - celeb.height * scale) / 2;
-        ctx.drawImage(celeb, cx, cy, celeb.width * scale, celeb.height * scale);
-        ctx.restore();
+        const pool = ENTRIES.filter(e => !recentHistory.includes(e.name));
+        const available = pool.length > 0 ? pool : ENTRIES;
+        const entry = available[Math.floor(Math.random() * available.length)];
+        recentHistory.push(entry.name);
+        if (recentHistory.length > HISTORY_SIZE) recentHistory = recentHistory.slice(-HISTORY_SIZE);
+        saveHistory(recentHistory);
+        headline = entry.colon
+          ? `${entry.name.toUpperCase()}: ${entry.headline}`
+          : `${entry.name.toUpperCase()} ${entry.headline}`;
+        celebBuffer = await fetchCelebrityImage(entry.name);
       }
 
-      // bottom black bar — fill entire remaining oversized canvas
-      const barY = photoH;
-      ctx.fillStyle = "#000000";
-      ctx.fillRect(0, barY, W, H - barY);
+      const buffer = await spawnRenderWorker({
+        headline,
+        celebBuffer,
+        topicImagesDir: TOPIC_IMAGES_DIR,
+        profileImgPath: PROFILE_IMG_PATH,
+        topicBuffer,
+      });
 
-      // gradient fade between image and headline
-      const gradientH = 350;
-      const grad = ctx.createLinearGradient(0, barY - gradientH, 0, barY);
-      grad.addColorStop(0, "rgba(0,0,0,0)");
-      grad.addColorStop(1, "rgba(0,0,0,1)");
-      ctx.fillStyle = grad;
-      ctx.fillRect(0, barY - gradientH, W, gradientH);
-
-      // NEWS badge
-      const badgeX = 28, badgeY = barY + badgePadding;
-      const badgeW = 110;
-      ctx.fillStyle = "#ffffff";
-      ctx.fillRect(badgeX, badgeY, badgeW, badgeH);
-      ctx.fillStyle = "#000000";
-      ctx.font = "bold 20px sans-serif";
-      ctx.textBaseline = "middle";
-      ctx.fillText("NEWS", badgeX + 14, badgeY + badgeH / 2);
-      ctx.textBaseline = "alphabetic";
-
-      // headline
-      ctx.font = "bold 56px sans-serif";
-      const lines = wrapText(ctx, headline, W - 56);
-
-      let headlineY = badgeY + badgeH + headlinePadTop;
-      for (const line of lines) {
-        let x = 28;
-        const words = line.split(" ");
-        for (let w = 0; w < words.length; w++) {
-          const word = words[w];
-          const clean = stripMarkers(word);
-          const token = w < words.length - 1 ? clean + " " : clean;
-          ctx.fillStyle = isRed(word) ? "#ff2222" : "#ffffff";
-          ctx.fillText(token, x, headlineY);
-          x += ctx.measureText(token).width;
-        }
-        headlineY += lineH;
-      }
-
-      // profile watermark — top-left corner, circular, semi-transparent
-      try {
-        const profileBuf = await sharp(PROFILE_IMG_PATH).png().toBuffer();
-        const profileImg = await loadImage(profileBuf);
-        const wmSize = 80;
-        const wmX = 18, wmY = 18;
-        ctx.save();
-        ctx.beginPath();
-        ctx.arc(wmX + wmSize / 2, wmY + wmSize / 2, wmSize / 2, 0, Math.PI * 2);
-        ctx.closePath();
-        ctx.clip();
-        ctx.drawImage(profileImg, wmX, wmY, wmSize, wmSize);
-        ctx.restore();
-        ctx.beginPath();
-        ctx.arc(wmX + wmSize / 2, wmY + wmSize / 2, wmSize / 2, 0, Math.PI * 2);
-        ctx.strokeStyle = "#000000";
-        ctx.lineWidth = 3;
-        ctx.stroke();
-      } catch { /* skip watermark if image unavailable */ }
-
-      // crop canvas to just below the last rendered line of text
-      const cropH = Math.ceil(headlineY - lineH + 40);
-      const buffer = await sharp(canvas.toBuffer("image/png"))
-        .extract({ left: 0, top: 0, width: W, height: cropH })
-        .toBuffer();
       const attachment = new AttachmentBuilder(buffer, { name: "article.png" });
-      await thinking.delete();
       await channel.send({ files: [attachment] });
+      await thinking.delete();
     } catch (err) {
       console.error("[article]", err);
-      await thinking.edit("Failed to generate article.");
+      try { await thinking.edit("Failed to generate article."); } catch {}
+    } finally {
+      activeWorkers--;
     }
   },
 };

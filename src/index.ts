@@ -1,5 +1,12 @@
 import "dotenv/config";
 
+process.on("unhandledRejection", (reason) => {
+  console.error("[unhandledRejection]", reason);
+});
+process.on("uncaughtException", (err) => {
+  console.error("[uncaughtException]", err);
+});
+
 const _stderr = process.stderr.write.bind(process.stderr);
 (process.stderr as any).write = (chunk: any, ...args: any[]) => {
   if (typeof chunk === "string" && chunk.includes("Fontconfig")) return true;
@@ -24,12 +31,18 @@ client.prefixCommands = new Collection();
   client.on("error", err => console.error("[ws] error:", err));
   client.on("warn", msg => console.warn("[ws] warn:", msg));
 
-  // watchdog: if the WebSocket ping goes dead, exit so run.sh restarts
-  setInterval(() => {
-    const ping = client.ws.ping;
-    if (ping === -1) {
-      console.error("[watchdog] WebSocket ping is -1, connection is dead — restarting");
+  let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+
+  client.on("shardDisconnect", (event, shardId) => {
+    console.warn(`[ws] shard ${shardId} disconnected (code ${event.code}) — waiting 30s for reconnect`);
+    reconnectTimer = setTimeout(() => {
+      console.error("[ws] failed to reconnect within 30s — restarting");
       process.exit(1);
-    }
-  }, 60_000);
+    }, 30_000);
+  });
+
+  client.on("shardResume", () => {
+    if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null; }
+    console.log("[ws] shard resumed");
+  });
 })();

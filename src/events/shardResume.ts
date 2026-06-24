@@ -7,7 +7,7 @@ const STATUS_FILE = join(__dirname, "..", "..", "data", "status.json");
 module.exports = {
   name: Events.ShardResume,
   once: false,
-  async execute(client: Client) {
+  async execute(_shardId: number, _replayedEvents: number, client: Client) {
     let text = process.env.BOT_ACTIVITY!;
     if (existsSync(STATUS_FILE)) {
       try { text = JSON.parse(readFileSync(STATUS_FILE, "utf-8")).text; } catch {}

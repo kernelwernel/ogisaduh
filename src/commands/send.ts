@@ -14,7 +14,7 @@ const command: PrefixCommand = {
       await message.react("✅");
     } catch (err) {
       console.error("[send] Failed to send message:", err);
-      await message.reply("Failed to send message.");
+      try { await message.reply("Failed to send message."); } catch {}
     }
   },
 };

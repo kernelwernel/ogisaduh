@@ -15,7 +15,7 @@ const command: PrefixCommand = {
           "`$snipe [number]`: snipe the last deleted message",
           "`$editsnipe [number]`: snipe the last edited message",
           "`$uptime`: show bot uptime",
-          "`$news`: generate real news (better than ogisada)",
+          "`$news [headline] [image(s)]`: generate real news (better than ogisada)",
           "`$jews`: ✡️",
           "`$restart`: restart the bot",
           "`$shutdown`: shut down the bot (owner only)",
