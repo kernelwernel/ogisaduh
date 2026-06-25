@@ -17,7 +17,7 @@ const command: PrefixCommand = {
           .setColor(0xff9900),
       ],
     });
-    process.exit(0);
+    process.exit(1);
   },
 };
 

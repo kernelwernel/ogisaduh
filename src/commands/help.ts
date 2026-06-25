@@ -8,18 +8,27 @@ const command: PrefixCommand = {
       .setTitle("Commands")
       .setDescription(
         [
+          "**General**",
           "`$ping`: check bot latency",
-          "`$status <text>`: change bot status",
-          "`$send <message>`: DM ogisada a message",
+          "`$uptime`: show bot uptime",
+          "`$help`: show this message",
+          "",
+          "**Random**",
           "`$gif`: send a random ogisada gif",
+          "`$jews`: ✡️",
+          "`$news [headline] [image(s)]`: generate real news (better than ogisada)",
+          "`$status <text>`: change bot status",
+          "`$setprofile`: set the bot's avatar (attach image)",
+          "",
+          "**Utility**",
+          "`$eval <command>`: run a linux shell command in the bot container",
           "`$snipe [number]`: snipe the last deleted message",
           "`$editsnipe [number]`: snipe the last edited message",
-          "`$uptime`: show bot uptime",
-          "`$news [headline] [image(s)]`: generate real news (better than ogisada)",
-          "`$jews`: ✡️",
+          "`$send <@user|id> <message>`: DM a user",
           "`$restart`: restart the bot",
-          "`$shutdown`: shut down the bot (owner only)",
-          "`$help`: show this message",
+          "",
+          "**Owner only**",
+          "`$shutdown`: shut down the bot",
         ].join("\n")
       )
       .setColor(0x5865f2);

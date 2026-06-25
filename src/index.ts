@@ -1,4 +1,19 @@
 import "dotenv/config";
+import { readFileSync } from "fs";
+
+function getSecret(name: string, envFallback?: string): string {
+  try {
+    return readFileSync(`/run/secrets/${name}`, "utf8").trim();
+  } catch {
+    const val = envFallback ? process.env[envFallback] : undefined;
+    if (!val) throw new Error(`Secret "${name}" not found: no secrets file and env var "${envFallback}" is unset`);
+    return val;
+  }
+}
+
+function getToken(): string {
+  return getSecret("discord_token", "TOKEN");
+}
 
 process.on("unhandledRejection", (reason) => {
   console.error("[unhandledRejection]", reason);
@@ -26,7 +41,7 @@ client.prefixCommands = new Collection();
 (async () => {
   await loadCommands(client);
   await loadEvents(client);
-  await client.login(process.env.TOKEN);
+  await client.login(getToken());
 
   client.on("error", err => console.error("[ws] error:", err));
   client.on("warn", msg => console.warn("[ws] warn:", msg));
@@ -34,11 +49,11 @@ client.prefixCommands = new Collection();
   let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
 
   client.on("shardDisconnect", (event, shardId) => {
-    console.warn(`[ws] shard ${shardId} disconnected (code ${event.code}) — waiting 30s for reconnect`);
+    console.warn(`[ws] shard ${shardId} disconnected (code ${event.code}) — waiting 2m for reconnect`);
     reconnectTimer = setTimeout(() => {
-      console.error("[ws] failed to reconnect within 30s — restarting");
+      console.error("[ws] failed to reconnect within 2m — restarting");
       process.exit(1);
-    }, 30_000);
+    }, 120_000);
   });
 
   client.on("shardResume", () => {

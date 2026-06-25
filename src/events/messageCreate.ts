@@ -53,7 +53,8 @@ module.exports = {
     const [commandName, ...args] = message.content.slice(PREFIX.length).trim().split(/\s+/);
     const command = client.prefixCommands.get(commandName.toLowerCase());
     if (!command) return;
-    console.log(`[${new Date().toLocaleTimeString()}] ${message.author.tag} ran: ${message.content}`);
+    const ctx = message.channel.isDMBased() ? "[DM] " : "";
+    console.log(`[${new Date().toLocaleTimeString()}] ${ctx}${message.author.tag} ran: ${message.content}`);
     try {
       await command.execute(message, args);
     } catch (err) {

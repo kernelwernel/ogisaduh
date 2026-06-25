@@ -2,7 +2,7 @@ import { Message, TextChannel } from "discord.js";
 import { PrefixCommand } from "../types";
 import { join } from "path";
 
-const GIFS = ["attachment.gif", "attachment2.gif", "attachment3.gif", "attachment4.gif"].map(f =>
+const GIFS = ["attachment.gif", "attachment2.gif", "attachment3.gif", "attachment4.gif", "pfp.jpg"].map(f =>
   join(__dirname, "..", "..", "assets", f)
 );
 

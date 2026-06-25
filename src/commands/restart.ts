@@ -10,7 +10,7 @@ const command: PrefixCommand = {
   async execute(message: Message) {
     writeFileSync(RESTART_FILE, JSON.stringify({ channelId: message.channel.id }));
     await (message.channel as TextChannel).send("Restarting...");
-    process.exit(0);
+    process.exit(1);
   },
 };
 

@@ -1,0 +1,13 @@
+services:
+  bot:
+    build: .
+    restart: on-failure
+    env_file: .env
+    secrets:
+      - discord_token
+    volumes:
+      - ./data:/app/data
+
+secrets:
+  discord_token:
+    file: ./secrets/discord_token

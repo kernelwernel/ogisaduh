@@ -1,0 +1,16 @@
+[Unit]
+Description=ogisaduh Discord bot
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=kernel
+WorkingDirectory=/home/kernel/rep/ogisaduh
+ExecStartPre=/usr/bin/npm run build
+ExecStart=/usr/bin/node dist/index.js
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

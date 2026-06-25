@@ -1,11 +1,10 @@
 import { Message, TextChannel, EmbedBuilder } from "discord.js";
 import { PrefixCommand } from "../types";
-
 const command: PrefixCommand = {
   name: "shutdown",
   async execute(message: Message) {
     if (message.author.id !== process.env.OWNER_ID) {
-      await (message.channel as TextChannel).send("no");
+      await (message.channel as TextChannel).send("nuh uh");
       return;
     }
 
