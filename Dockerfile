@@ -18,7 +18,9 @@ RUN apk add --no-cache \
     gcompat \
     libstdc++ \
     shadow \
-    sudo
+    sudo \
+    ttf-freefont \
+    fontconfig
 
 WORKDIR /app
 
