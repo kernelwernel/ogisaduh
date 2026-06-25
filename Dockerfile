@@ -36,9 +36,9 @@ COPY reaction_media ./reaction_media
 
 RUN mkdir -p data
 
-RUN printf 'nobody ALL=(root) NOPASSWD: /sbin/apk add *, /sbin/apk del *, /sbin/apk update, /sbin/apk upgrade\n' > /etc/sudoers.d/nobody-apk && \
+RUN printf 'nobody ALL=(root) NOPASSWD: /sbin/apk\n' > /etc/sudoers.d/nobody-apk && \
     chmod 440 /etc/sudoers.d/nobody-apk && \
-    printf '#!/bin/sh\nexec sudo /sbin/apk "$@"\n' > /usr/local/bin/apk && \
+    printf '#!/bin/sh\nif [ "$(id -u)" = "0" ]; then exec /sbin/apk "$@"; else exec sudo /sbin/apk "$@"; fi\n' > /usr/local/bin/apk && \
     chmod +x /usr/local/bin/apk
 
 COPY entrypoint.sh ./

@@ -31,11 +31,17 @@ const command: PrefixCommand = {
       return;
     }
 
-    const cmd = args.join(" ");
+    const cmd = args.join(" ").replace(/^sudo\s+/, "");
     const thinking = await message.reply(`\`${cmd}\``);
 
+    const isOwner = message.author.id === process.env.OWNER_ID;
+    const spawnArgs = isOwner
+      ? ["/bin/sh", "-c", cmd]
+      : ["su", "-s", "/bin/sh", "nobody", "-c", cmd];
+    const spawnCmd = isOwner ? "/bin/sh" : "su";
+
     const output = await new Promise<string>((resolve) => {
-      execFile("su", ["-s", "/bin/sh", "nobody", "-c", cmd], { timeout: TIMEOUT_MS }, (err, stdout, stderr) => {
+      execFile(spawnCmd, spawnArgs.slice(1), { timeout: TIMEOUT_MS }, (err, stdout, stderr) => {
         const combined = [stdout, stderr].filter(Boolean).join("\n").trim();
         if (!combined) return resolve(err ? `error: ${err.message}` : "(no output)");
         resolve(combined);

@@ -29,6 +29,7 @@ const command: PrefixCommand = {
           "",
           "**Owner only**",
           "`$shutdown`: shut down the bot",
+          "`$ban <add|remove> <@user|id>`: ban/unban a user from using the bot",
         ].join("\n")
       )
       .setColor(0x5865f2);

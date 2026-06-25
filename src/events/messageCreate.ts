@@ -1,4 +1,5 @@
 import { Events, Message } from "discord.js";
+import { isBanned } from "../utils/banlist";
 import { BotClient } from "../types";
 import { readdirSync } from "fs";
 import { join } from "path";
@@ -37,6 +38,7 @@ module.exports = {
   once: false,
   async execute(message: Message, client: BotClient) {
     if (message.author.bot) return;
+    if (isBanned(message.author.id)) return;
 
     if (message.channel.isDMBased()) {
       console.log(`[${new Date().toLocaleTimeString()}] ${message.author.tag}: ${message.content}`);
