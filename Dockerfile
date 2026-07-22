@@ -18,9 +18,11 @@ RUN apk add --no-cache \
     gcompat \
     libstdc++ \
     shadow \
-    sudo \
     ttf-freefont \
-    fontconfig
+    fontconfig \
+    git \
+    cmake \
+    clang
 
 WORKDIR /app
 
@@ -31,17 +33,17 @@ COPY tsconfig.json ./
 COPY src ./src
 RUN npm run build
 
+RUN git clone --depth=1 https://github.com/NotRequiem/VMAware /tmp/vmaware && \
+    cmake -B /tmp/vmaware/build -S /tmp/vmaware -DCMAKE_BUILD_TYPE=Release && \
+    cmake --build /tmp/vmaware/build -- -j$(nproc) && \
+    cp /tmp/vmaware/build/vmaware /usr/local/bin/vmaware && \
+    rm -rf /tmp/vmaware
+
 COPY assets ./assets
-COPY vmaware /usr/local/bin/vmaware
 COPY topic_images ./topic_images
 COPY reaction_media ./reaction_media
 
 RUN mkdir -p data
-
-RUN printf 'nobody ALL=(root) NOPASSWD: /sbin/apk\n' > /etc/sudoers.d/nobody-apk && \
-    chmod 440 /etc/sudoers.d/nobody-apk && \
-    printf '#!/bin/sh\nif [ "$(id -u)" = "0" ]; then exec /sbin/apk "$@"; else exec sudo /sbin/apk "$@"; fi\n' > /usr/local/bin/apk && \
-    chmod +x /usr/local/bin/apk
 
 COPY entrypoint.sh ./
 RUN chmod +x entrypoint.sh
