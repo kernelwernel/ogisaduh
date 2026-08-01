@@ -68,15 +68,18 @@ const command: PrefixCommand = {
         }),
       });
 
+      if (res.status === 429) {
+        throw new Error("The AI is rate-limited for the day. Try again later.");
+      }
       if (!res.ok) {
-        const text = await res.text();
-        throw new Error(`OpenRouter API error ${res.status}: ${text}`);
+        console.error("[summary] OpenRouter API error", res.status, await res.text());
+        throw new Error("The AI service is unavailable right now.");
       }
 
       const data: any = await res.json();
       const summary = data?.choices?.[0]?.message?.content?.trim();
       if (!summary) {
-        throw new Error("Empty response from model.");
+        throw new Error("The AI returned an empty response.");
       }
 
       const reply = summary.length > MAX_REPLY_LENGTH
@@ -86,7 +89,7 @@ const command: PrefixCommand = {
       await message.reply(reply);
     } catch (err: any) {
       console.error("[summary]", err);
-      await message.reply(`Failed to summarize: ${err?.message ?? "unknown error"}`);
+      await message.reply(`⚠️ Couldn't generate a summary: ${err?.message ?? "unknown error"}`);
     }
   },
 };

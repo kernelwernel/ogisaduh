@@ -31,6 +31,8 @@ import { Client, Collection, GatewayIntentBits, Partials } from "discord.js";
 import { BotClient } from "./types";
 import { loadEvents } from "./handlers/events";
 import { loadCommands } from "./handlers/commands";
+import { startCli } from "./cli";
+import { startRandomMessage } from "./randomMessage";
 
 const client = new Client({
   intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent, GatewayIntentBits.DirectMessages],
@@ -42,6 +44,8 @@ client.prefixCommands = new Collection();
   await loadCommands(client);
   await loadEvents(client);
   await client.login(getToken());
+  await startCli(client);
+  startRandomMessage(client);
 
   client.on("error", err => console.error("[ws] error:", err));
   client.on("warn", msg => console.warn("[ws] warn:", msg));

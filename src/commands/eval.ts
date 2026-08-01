@@ -11,12 +11,20 @@ const TOKEN: string = (() => {
   return process.env.TOKEN ?? "";
 })();
 
+const SECRET_ENV_PATTERN = /token|key|secret|password|credential/i;
+const SECRET_VALUES: string[] = [
+  TOKEN,
+  ...Object.entries(process.env)
+    .filter(([k, v]) => v && SECRET_ENV_PATTERN.test(k))
+    .map(([, v]) => v as string),
+].filter((v) => v && v.length >= 8);
+
 async function tokenLeakShutdown(message: Message) {
   await (message.channel as TextChannel).send({
     embeds: [
       new EmbedBuilder()
-        .setTitle("⚠️ Token Leak Detected")
-        .setDescription("Bot token was detected in eval output. Shutting down immediately.\nRotate the token at discord.com/developers/applications.")
+        .setTitle("⚠️ Secret Leak Detected")
+        .setDescription("A secret was detected in eval output. Shutting down immediately.\nRotate any exposed tokens/keys.")
         .setColor(0xff0000),
     ],
   });
@@ -34,16 +42,20 @@ const command: PrefixCommand = {
     const cmd = args.join(" ").replace(/^sudo\s+/, "");
     const thinking = await message.reply(`\`${cmd}\``);
 
+    const safeEnv = Object.fromEntries(
+      Object.entries(process.env).filter(([k]) => !SECRET_ENV_PATTERN.test(k))
+    );
+
     const output = await new Promise<string>((resolve) => {
-      execFile("su", ["-s", "/bin/sh", "nobody", "-c", cmd], { timeout: TIMEOUT_MS }, (err, stdout, stderr) => {
+      execFile("su", ["-s", "/bin/sh", "nobody", "-c", cmd], { timeout: TIMEOUT_MS, env: safeEnv }, (err, stdout, stderr) => {
         const combined = [stdout, stderr].filter(Boolean).join("\n").trim();
         if (!combined) return resolve(err ? `error: ${err.message}` : "(no output)");
         resolve(combined);
       });
     });
 
-    if (TOKEN && output.includes(TOKEN)) {
-      await thinking.edit("⚠️ Token leak detected — shutting down.");
+    if (SECRET_VALUES.some((secret) => output.includes(secret))) {
+      await thinking.edit("⚠️ Secret leak detected — shutting down.");
       await tokenLeakShutdown(message);
       return;
     }
