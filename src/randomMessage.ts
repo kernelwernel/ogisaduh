@@ -31,7 +31,9 @@ const PEOPLE: string[] = [
   "ROSA PARKS",
   "NIGGAS",
   "KANYE WEST",
+  "TODDLERS",
   "REPUBLICANS",
+  "NAZIS"
 ];
 
 const ACTIONS: string[] = [
@@ -41,12 +43,19 @@ const ACTIONS: string[] = [
   "SODOMISED",
   "ASSAULTED",
   "CRUCIFIED",
-  "JACKED OFF TO",
-  "GOT NAKED",
-  "GAVE BIRTH TO",
   "KISSED",
   "PUNCHED",
   "URINATED"
+];
+
+const ACTIVITY: string[] = [
+  "WATCHED GAY PORN",
+  "FUCKED NIGGAS",
+  "JACKED OFF",
+  "SHOT RETARDS",
+  "GAVE BIRTH",
+  "GOT NAKED",
+  ""
 ];
 
 const ADJECTIVE: string[] = [

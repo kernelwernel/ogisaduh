@@ -20,9 +20,7 @@ RUN apk add --no-cache \
     shadow \
     ttf-freefont \
     fontconfig \
-    git \
-    cmake \
-    clang
+    git
 
 WORKDIR /app
 
@@ -32,12 +30,6 @@ RUN npm ci
 COPY tsconfig.json ./
 COPY src ./src
 RUN npm run build
-
-RUN git clone --depth=1 https://github.com/NotRequiem/VMAware /tmp/vmaware && \
-    cmake -B /tmp/vmaware/build -S /tmp/vmaware -DCMAKE_BUILD_TYPE=Release && \
-    cmake --build /tmp/vmaware/build -- -j$(nproc) && \
-    cp /tmp/vmaware/build/vmaware /usr/local/bin/vmaware && \
-    rm -rf /tmp/vmaware
 
 COPY assets ./assets
 COPY topic_images ./topic_images

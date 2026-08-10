@@ -1,5 +1,5 @@
 import { Message, TextChannel, EmbedBuilder } from "discord.js";
-import { PrefixCommand } from "../types";
+import { PrefixCommand } from "../../types";
 const command: PrefixCommand = {
   name: "shutdown",
   async execute(message: Message) {

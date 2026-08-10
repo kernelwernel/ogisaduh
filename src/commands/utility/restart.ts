@@ -1,9 +1,9 @@
 import { Message, TextChannel } from "discord.js";
-import { PrefixCommand } from "../types";
+import { PrefixCommand } from "../../types";
 import { writeFileSync } from "fs";
 import { join } from "path";
 
-const RESTART_FILE = join(__dirname, "..", "..", "data", "restart.json");
+const RESTART_FILE = join(__dirname, "..", "..", "..", "data", "restart.json");
 
 const command: PrefixCommand = {
   name: "restart",

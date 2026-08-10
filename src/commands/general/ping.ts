@@ -1,5 +1,5 @@
 import { Message, EmbedBuilder, TextChannel } from "discord.js";
-import { PrefixCommand } from "../types";
+import { PrefixCommand } from "../../types";
 
 const command: PrefixCommand = {
   name: "ping",

@@ -1,5 +1,5 @@
 import { Message, TextChannel, EmbedBuilder } from "discord.js";
-import { PrefixCommand } from "../types";
+import { PrefixCommand } from "../../types";
 import { execFile } from "child_process";
 import { readFileSync } from "fs";
 

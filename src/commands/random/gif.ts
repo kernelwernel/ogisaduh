@@ -1,9 +1,9 @@
 import { Message, TextChannel } from "discord.js";
-import { PrefixCommand } from "../types";
+import { PrefixCommand } from "../../types";
 import { join } from "path";
 
-const GIFS = ["attachment.gif", "attachment2.gif", "attachment3.gif", "attachment4.gif", "pfp.jpg", "attachment5.webp"].map(f =>
-  join(__dirname, "..", "..", "assets", f)
+const GIFS = ["attachment.gif", "attachment2.gif", "attachment3.gif", "attachment4.gif", "pfp.jpg", "attachment5.webp", "attachment6.png"].map(f =>
+  join(__dirname, "..", "..", "..", "assets", f)
 );
 
 let gifPool: string[] = [];

@@ -1,5 +1,5 @@
 import { Attachment, AttachmentBuilder, Message, TextChannel } from "discord.js";
-import { PrefixCommand } from "../types";
+import { PrefixCommand } from "../../types";
 import { createCanvas, loadImage } from "canvas";
 
 const FONT = "bold 40px sans-serif";

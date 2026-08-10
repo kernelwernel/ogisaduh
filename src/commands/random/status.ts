@@ -1,9 +1,9 @@
 import { Message, ActivityType, TextChannel } from "discord.js";
-import { PrefixCommand } from "../types";
+import { PrefixCommand } from "../../types";
 import { writeFileSync } from "fs";
 import { join } from "path";
 
-const STATUS_FILE = join(__dirname, "..", "..", "data", "status.json");
+const STATUS_FILE = join(__dirname, "..", "..", "..", "data", "status.json");
 
 const command: PrefixCommand = {
   name: "status",

@@ -1,9 +1,11 @@
 import { Message, TextChannel } from "discord.js";
-import { PrefixCommand } from "../types";
+import { PrefixCommand } from "../../types";
+import { getPrependMessage } from "../../utils/prependPrompt";
 
-const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
-const MODEL = "nvidia/nemotron-3-ultra-550b-a55b:free";
-const MAX_MESSAGES = 100;
+const DEEPSEEK_URL = "https://api.deepseek.com/chat/completions";
+const MODEL = "deepseek-chat";
+const MAX_MESSAGES = 500;
+const FETCH_BATCH_SIZE = 100; // Discord's per-request fetch limit
 const MAX_CONTENT_LENGTH = 500;
 const MAX_REPLY_LENGTH = 1900;
 
@@ -25,17 +27,27 @@ const command: PrefixCommand = {
       return;
     }
 
-    const apiKey = process.env.OPENROUTER_API_KEY;
+    const apiKey = process.env.DEEPSEEK_API_KEY;
     if (!apiKey) {
-      await message.reply("OPENROUTER_API_KEY is not configured.");
+      await message.reply("DEEPSEEK_API_KEY is not configured.");
       return;
     }
 
     try {
       await (message.channel as TextChannel).sendTyping();
 
-      const fetched = await message.channel.messages.fetch({ limit: count, before: message.id });
-      const lines = [...fetched.values()]
+      const collected: Message[] = [];
+      let before = message.id;
+      while (collected.length < count) {
+        const batchSize = Math.min(FETCH_BATCH_SIZE, count - collected.length);
+        const fetched = await message.channel.messages.fetch({ limit: batchSize, before });
+        if (fetched.size === 0) break;
+        collected.push(...fetched.values());
+        before = fetched.last()!.id;
+        if (fetched.size < batchSize) break;
+      }
+
+      const lines = collected
         .reverse()
         .map(formatMessage)
         .filter((line): line is string => line !== null);
@@ -47,7 +59,7 @@ const command: PrefixCommand = {
 
       const transcript = lines.join("\n");
 
-      const res = await fetch(OPENROUTER_URL, {
+      const res = await fetch(DEEPSEEK_URL, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${apiKey}`,
@@ -56,6 +68,7 @@ const command: PrefixCommand = {
         body: JSON.stringify({
           model: MODEL,
           messages: [
+            ...(getPrependMessage() ? [{ role: "system", content: getPrependMessage() }] : []),
             {
               role: "system",
               content: "You summarize Discord chat logs concisely. Focus on the key points, decisions, and topics discussed. Keep the summary short and easy to skim.",
@@ -72,7 +85,7 @@ const command: PrefixCommand = {
         throw new Error("The AI is rate-limited for the day. Try again later.");
       }
       if (!res.ok) {
-        console.error("[summary] OpenRouter API error", res.status, await res.text());
+        console.error("[summary] DeepSeek API error", res.status, await res.text());
         throw new Error("The AI service is unavailable right now.");
       }
 

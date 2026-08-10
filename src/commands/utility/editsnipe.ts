@@ -1,6 +1,6 @@
 import { Message, EmbedBuilder, TextChannel } from "discord.js";
-import { PrefixCommand } from "../types";
-import { editSnipes, editSnipeHistory, EditSnipeEntry } from "../snipeStore";
+import { PrefixCommand } from "../../types";
+import { editSnipes, editSnipeHistory, EditSnipeEntry } from "../../snipeStore";
 
 function buildEmbed(entry: EditSnipeEntry): EmbedBuilder {
   return new EmbedBuilder()

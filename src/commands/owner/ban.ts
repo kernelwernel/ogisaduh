@@ -1,6 +1,6 @@
 import { Message, EmbedBuilder } from "discord.js";
-import { PrefixCommand } from "../types";
-import { ban, unban } from "../utils/banlist";
+import { PrefixCommand } from "../../types";
+import { ban, unban } from "../../utils/banlist";
 
 const command: PrefixCommand = {
   name: "ban",

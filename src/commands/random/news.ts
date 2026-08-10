@@ -1,12 +1,12 @@
 import { Message, TextChannel, AttachmentBuilder } from "discord.js";
-import { PrefixCommand } from "../types";
+import { PrefixCommand } from "../../types";
 import sharp from "sharp";
 import { join } from "path";
 import { Worker } from "worker_threads";
 import { readFileSync, writeFileSync } from "fs";
 
-const TOPIC_IMAGES_DIR = join(__dirname, "..", "..", "topic_images");
-const PROFILE_IMG_PATH = join(__dirname, "..", "..", "assets", "profile.png");
+const TOPIC_IMAGES_DIR = join(__dirname, "..", "..", "..", "topic_images");
+const PROFILE_IMG_PATH = join(__dirname, "..", "..", "..", "assets", "profile.png");
 
 function spawnRenderWorker(data: {
   headline: string;
@@ -18,8 +18,8 @@ function spawnRenderWorker(data: {
   return new Promise((resolve, reject) => {
     const isTS = __filename.endsWith(".ts");
     const workerPath = isTS
-      ? join(__dirname, "../workers/newsRender.ts")
-      : join(__dirname, "../workers/newsRender.js");
+      ? join(__dirname, "../../workers/newsRender.ts")
+      : join(__dirname, "../../workers/newsRender.js");
     const worker = new Worker(workerPath, {
       workerData: data,
       execArgv: isTS ? ["-r", "ts-node/register"] : [],
@@ -305,7 +305,7 @@ async function fetchCelebrityImage(name: string): Promise<Buffer> {
 }
 
 const HISTORY_SIZE = 50;
-const HISTORY_PATH = join(__dirname, "..", "..", "data", "news_history.json");
+const HISTORY_PATH = join(__dirname, "..", "..", "..", "data", "news_history.json");
 
 let activeWorkers = 0;
 const MAX_WORKERS = 2;

@@ -33,6 +33,7 @@ import { loadEvents } from "./handlers/events";
 import { loadCommands } from "./handlers/commands";
 import { startCli } from "./cli";
 import { startRandomMessage } from "./randomMessage";
+import { ensureSchema } from "./utils/economy";
 
 const client = new Client({
   intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent, GatewayIntentBits.DirectMessages],
@@ -41,6 +42,12 @@ const client = new Client({
 client.prefixCommands = new Collection();
 
 (async () => {
+  try {
+    await ensureSchema();
+    console.log("[db] connected and schema ready");
+  } catch (err) {
+    console.error("[db] failed to connect/initialize — economy commands won't work until this is fixed:", err);
+  }
   await loadCommands(client);
   await loadEvents(client);
   await client.login(getToken());

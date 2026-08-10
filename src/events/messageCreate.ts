@@ -5,7 +5,9 @@ import { readdirSync } from "fs";
 import { join } from "path";
 
 const PREFIX = process.env.PREFIX!;
-const OGISADA_USER_ID = process.env.TARGET_USER_ID!;
+const OGISADA_USER_ID = "226369872970383373";
+// Economy commands ($work, $rob, $slots, etc.) can't be run in this channel.
+const MAIN_CHAT_CHANNEL_ID = process.env.MAIN_CHAT_CHANNEL_ID ?? "";
 
 const GIFS_DIR = join(__dirname, "..", "..", "assets");
 const GIFS = ["attachment.gif", "attachment2.gif", "attachment3.gif", "attachment4.gif"].map(f => join(GIFS_DIR, f));
@@ -46,8 +48,10 @@ module.exports = {
 
     if (message.author.id === OGISADA_USER_ID && URL_REGEX.test(message.content)) {
       try {
-        await message.author.send({ files: [randomGif()] });
         await message.reply({ files: [randomMedia()] });
+      } catch {}
+      try {
+        await message.author.send({ files: [randomGif()] });
       } catch {}
     }
 
@@ -55,6 +59,10 @@ module.exports = {
     const [commandName, ...args] = message.content.slice(PREFIX.length).trim().split(/\s+/);
     const command = client.prefixCommands.get(commandName.toLowerCase());
     if (!command) return;
+    if (command.category === "economy" && MAIN_CHAT_CHANNEL_ID && message.channel.id === MAIN_CHAT_CHANNEL_ID) {
+      await message.reply("⚠️ Economy commands can't be used in this channel.");
+      return;
+    }
     const ctx = message.channel.isDMBased() ? "[DM] " : "";
     console.log(`[${new Date().toLocaleTimeString()}] ${ctx}${message.author.tag} ran: ${message.content}`);
     try {
