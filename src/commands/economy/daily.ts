@@ -18,7 +18,7 @@ const command: PrefixCommand = {
 
     const reward = Math.floor(Math.random() * (MAX_REWARD - MIN_REWARD + 1)) + MIN_REWARD;
     await touchCooldown(message.author.id, "lastDaily");
-    const updated = await addCash(message.author.id, reward);
+    const updated = await addCash(message.author.id, BigInt(reward));
 
     const embed = new EmbedBuilder()
       .setTitle("🗓️ Daily Reward")

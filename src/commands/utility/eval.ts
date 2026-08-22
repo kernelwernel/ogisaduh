@@ -31,40 +31,44 @@ async function tokenLeakShutdown(message: Message) {
   process.exit(1);
 }
 
+async function runEval(message: Message, args: string[]) {
+  if (!args.length) {
+    await message.reply("Usage: `$eval <command>`");
+    return;
+  }
+
+  const cmd = args.join(" ").replace(/^sudo\s+/, "");
+  const thinking = await message.reply(`\`${cmd}\``);
+
+  const safeEnv = Object.fromEntries(
+    Object.entries(process.env).filter(([k]) => !SECRET_ENV_PATTERN.test(k))
+  );
+
+  const output = await new Promise<string>((resolve) => {
+    execFile("su", ["-s", "/bin/sh", "nobody", "-c", cmd], { timeout: TIMEOUT_MS, env: safeEnv }, (err, stdout, stderr) => {
+      const combined = [stdout, stderr].filter(Boolean).join("\n").trim();
+      if (!combined) return resolve(err ? `error: ${err.message}` : "(no output)");
+      resolve(combined);
+    });
+  });
+
+  if (SECRET_VALUES.some((secret) => output.includes(secret))) {
+    await thinking.edit("⚠️ Secret leak detected — shutting down.");
+    await tokenLeakShutdown(message);
+    return;
+  }
+
+  const truncated = output.length > MAX_OUTPUT
+    ? output.slice(0, MAX_OUTPUT) + "\n... (truncated)"
+    : output;
+
+  await thinking.edit(`\`${cmd}\`\n\`\`\`\n${truncated}\n\`\`\``);
+}
+
 const command: PrefixCommand = {
   name: "eval",
   async execute(message: Message, args: string[]) {
-    if (!args.length) {
-      await message.reply("Usage: `$eval <command>`");
-      return;
-    }
-
-    const cmd = args.join(" ").replace(/^sudo\s+/, "");
-    const thinking = await message.reply(`\`${cmd}\``);
-
-    const safeEnv = Object.fromEntries(
-      Object.entries(process.env).filter(([k]) => !SECRET_ENV_PATTERN.test(k))
-    );
-
-    const output = await new Promise<string>((resolve) => {
-      execFile("su", ["-s", "/bin/sh", "nobody", "-c", cmd], { timeout: TIMEOUT_MS, env: safeEnv }, (err, stdout, stderr) => {
-        const combined = [stdout, stderr].filter(Boolean).join("\n").trim();
-        if (!combined) return resolve(err ? `error: ${err.message}` : "(no output)");
-        resolve(combined);
-      });
-    });
-
-    if (SECRET_VALUES.some((secret) => output.includes(secret))) {
-      await thinking.edit("⚠️ Secret leak detected — shutting down.");
-      await tokenLeakShutdown(message);
-      return;
-    }
-
-    const truncated = output.length > MAX_OUTPUT
-      ? output.slice(0, MAX_OUTPUT) + "\n... (truncated)"
-      : output;
-
-    await thinking.edit(`\`${cmd}\`\n\`\`\`\n${truncated}\n\`\`\``);
+    await runEval(message, args);
   },
 };
 

@@ -1,11 +1,12 @@
-import { Events, Message } from "discord.js";
-import { isBanned } from "../utils/banlist";
+import { Events, Message, EmbedBuilder } from "discord.js";
+import { isBanned } from "../utils/bans";
 import { BotClient } from "../types";
 import { readdirSync } from "fs";
 import { join } from "path";
+import { withRetry } from "../utils/retry";
 
 const PREFIX = process.env.PREFIX!;
-const OGISADA_USER_ID = "226369872970383373";
+const OGISADA_USER_ID = process.env.OGISADA_ID!;
 // Economy commands ($work, $rob, $slots, etc.) can't be run in this channel.
 const MAIN_CHAT_CHANNEL_ID = process.env.MAIN_CHAT_CHANNEL_ID ?? "";
 
@@ -47,11 +48,13 @@ module.exports = {
     }
 
     if (message.author.id === OGISADA_USER_ID && URL_REGEX.test(message.content)) {
+      const media = randomMedia();
       try {
-        await message.reply({ files: [randomMedia()] });
+        await withRetry(() => message.reply({ files: [media] }));
       } catch {}
+      const gif = randomGif();
       try {
-        await message.author.send({ files: [randomGif()] });
+        await withRetry(() => message.author.send({ files: [gif] }));
       } catch {}
     }
 
@@ -69,6 +72,18 @@ module.exports = {
       await command.execute(message, args);
     } catch (err) {
       console.error(err);
+      // Postgres/CockroachDB error 22003: a value (usually a huge cash/bank balance) no
+      // longer fits the column's numeric range. Surface it instead of failing silently.
+      if ((err as { code?: string } | undefined)?.code === "22003") {
+        try {
+          await message.reply({
+            embeds: [new EmbedBuilder()
+              .setTitle("⚠️ Integer Out of Range")
+              .setDescription("A balance got too large for the database to store, so this didn't go through. Ask the owner to fix it (e.g. `$setmoney` it back down).")
+              .setColor(0xff3333)],
+          });
+        } catch {}
+      }
     }
   },
 };

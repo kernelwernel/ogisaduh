@@ -7,9 +7,15 @@ services:
     env_file: .env
     secrets:
       - discord_token
+      - database_url
+      - deepseek_api_key
     volumes:
       - ./data:/app/data
 
 secrets:
   discord_token:
     file: ./secrets/discord_token
+  database_url:
+    file: ./secrets/database_url
+  deepseek_api_key:
+    file: ./secrets/deepseek_api_key

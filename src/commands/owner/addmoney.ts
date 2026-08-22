@@ -1,6 +1,6 @@
 import { Message, EmbedBuilder } from "discord.js";
 import { PrefixCommand } from "../../types";
-import { addCash, setBalance, getAccount, formatCurrency } from "../../utils/economy";
+import { addCash, setBalance, getAccount, formatCurrency, parseWholeAmount } from "../../utils/economy";
 
 const command: PrefixCommand = {
   name: "addmoney",
@@ -8,10 +8,10 @@ const command: PrefixCommand = {
     if (message.author.id !== process.env.OWNER_ID) return;
 
     const target = message.mentions.users.first();
-    const amount = Math.floor(Number(args[1]));
+    const amount = parseWholeAmount(args[1]);
     const field = (args[2]?.toLowerCase() === "bank" ? "bank" : "cash") as "cash" | "bank";
 
-    if (!target || !Number.isFinite(amount) || amount <= 0) {
+    if (!target || amount === null) {
       await message.reply("Usage: `$addmoney <@user> <amount> [cash|bank]`");
       return;
     }

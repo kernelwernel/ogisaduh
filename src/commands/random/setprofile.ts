@@ -1,5 +1,6 @@
 import { Message } from "discord.js";
 import { PrefixCommand } from "../../types";
+import { withRetry } from "../../utils/retry";
 
 const command: PrefixCommand = {
   name: "setprofile",
@@ -13,7 +14,7 @@ const command: PrefixCommand = {
     }
 
     try {
-      const res = await fetch(attachment.url);
+      const res = await withRetry(() => fetch(attachment.url));
       const buf = Buffer.from(await res.arrayBuffer());
       await message.client.user.setAvatar(buf);
       await message.react("✅");

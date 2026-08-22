@@ -27,14 +27,14 @@ const command: PrefixCommand = {
     const acc = await getAccount(message.author.id);
     const remaining = cooldownRemaining(acc.lastWork, COOLDOWN_MS);
     if (remaining > 0) {
-      await message.reply(`⏳ You're still on the clock. Try again in **${formatDuration(remaining)}**.`);
+      await message.reply(`⏳ You're still on the cock. Try again in **${formatDuration(remaining)}**.`);
       return;
     }
 
     const reward = Math.floor(Math.random() * (MAX_REWARD - MIN_REWARD + 1)) + MIN_REWARD;
     const job = JOBS[Math.floor(Math.random() * JOBS.length)];
     await touchCooldown(message.author.id, "lastWork");
-    const updated = await addCash(message.author.id, reward);
+    const updated = await addCash(message.author.id, BigInt(reward));
 
     const embed = new EmbedBuilder()
       .setTitle("🫦 Slut")

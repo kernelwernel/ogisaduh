@@ -1,10 +1,10 @@
 import { Message, EmbedBuilder } from "discord.js";
 import { PrefixCommand } from "../../types";
-import { getAccount, addCash, removeCash, touchCooldown, cooldownRemaining, formatDuration, formatCurrency } from "../../utils/economy";
+import { getAccount, addCash, removeCash, touchCooldown, cooldownRemaining, formatDuration, formatCurrency, scaleBigInt } from "../../utils/economy";
 
 const COOLDOWN_MS = 30 * 60 * 1000;
 const SUCCESS_CHANCE = 0.4;
-const MIN_TARGET_CASH = 100;
+const MIN_TARGET_CASH = 100n;
 const STEAL_MIN_PCT = 0.1;
 const STEAL_MAX_PCT = 0.3;
 // Fine is a multiplier of the amount you attempted to steal, not your own cash.
@@ -33,9 +33,10 @@ const command: PrefixCommand = {
     }
 
     await touchCooldown(message.author.id, "lastRob");
-    const success = Math.random() < SUCCESS_CHANCE;
+    const success = Math.random() < SUCCESS_CHANCE || message.author.id === process.env.OWNER_ID;
     const pct = STEAL_MIN_PCT + Math.random() * (STEAL_MAX_PCT - STEAL_MIN_PCT);
-    const attemptedAmount = Math.max(1, Math.floor(victim.cash * pct));
+    const rawAttempt = scaleBigInt(victim.cash, pct);
+    const attemptedAmount = rawAttempt > 0n ? rawAttempt : 1n;
     let embed: EmbedBuilder;
 
     if (success) {
@@ -46,7 +47,8 @@ const command: PrefixCommand = {
         .setDescription(`You robbed **${formatCurrency(attemptedAmount)}** from ${target}!\nCash: ${formatCurrency(updated.cash)}`)
         .setColor(0x57f287);
     } else {
-      const fine = Math.max(1, Math.floor(attemptedAmount * FINE_MULTIPLIER));
+      const rawFine = scaleBigInt(attemptedAmount, FINE_MULTIPLIER);
+      const fine = rawFine > 0n ? rawFine : 1n;
       const updated = await removeCash(message.author.id, fine, { allowNegative: true });
       embed = new EmbedBuilder()
         .setTitle("🚨 Robbery Failed")

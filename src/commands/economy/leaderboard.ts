@@ -3,6 +3,7 @@ import { PrefixCommand } from "../../types";
 import { getLeaderboard, netWorth, formatCurrency } from "../../utils/economy";
 
 const MEDALS = ["🥇", "🥈", "🥉"];
+const COLUMNS = 3;
 
 const command: PrefixCommand = {
   name: "leaderboard",
@@ -18,12 +19,20 @@ const command: PrefixCommand = {
       const user = await message.client.users.fetch(entry.userId).catch(() => null);
       const name = user?.username ?? entry.userId;
       const rank = MEDALS[i] ?? `#${i + 1}`;
-      return `${rank} **${name}** — ${formatCurrency(netWorth(entry.account))}`;
+      return `${rank} **${name}**\n${formatCurrency(netWorth(entry.account))}`;
     }));
+
+    // Split sequentially into COLUMNS side-by-side fields (ranks 1-4, 5-7, 8-10 for 10 entries)
+    // rather than one long vertical list.
+    const perColumn = Math.ceil(lines.length / COLUMNS);
+    const fields = [];
+    for (let i = 0; i < lines.length; i += perColumn) {
+      fields.push({ name: "​", value: lines.slice(i, i + perColumn).join("\n\n"), inline: true });
+    }
 
     const embed = new EmbedBuilder()
       .setTitle("🏆 Richest Players")
-      .setDescription(lines.join("\n"))
+      .addFields(fields)
       .setColor(0xf1c40f);
 
     await message.reply({ embeds: [embed] });

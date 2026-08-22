@@ -1,6 +1,6 @@
 import { Message, EmbedBuilder } from "discord.js";
 import { PrefixCommand } from "../../types";
-import { removeCash, formatCurrency } from "../../utils/economy";
+import { removeCash, formatCurrency, parseWholeAmount } from "../../utils/economy";
 
 const command: PrefixCommand = {
   name: "removemoney",
@@ -8,9 +8,9 @@ const command: PrefixCommand = {
     if (message.author.id !== process.env.OWNER_ID) return;
 
     const target = message.mentions.users.first();
-    const amount = Math.floor(Number(args[1]));
+    const amount = parseWholeAmount(args[1]);
 
-    if (!target || !Number.isFinite(amount) || amount <= 0) {
+    if (!target || amount === null) {
       await message.reply("Usage: `$removemoney <@user> <amount>`");
       return;
     }

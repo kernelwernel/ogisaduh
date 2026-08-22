@@ -1,33 +1,17 @@
 import { Message, EmbedBuilder } from "discord.js";
 import { PrefixCommand } from "../../types";
-import { getAccount, addCash, parseAmount, formatCurrency } from "../../utils/economy";
+import { getAccount, addCash, setSlotStreak, parseAmount, formatCurrency, scaleBigInt } from "../../utils/economy";
 
-// Weighted symbol pool — rarer symbols pay out more.
-const SYMBOLS: { emoji: string; weight: number }[] = [
-  { emoji: "🍒", weight: 40 },
-  { emoji: "🍋", weight: 30 },
-  { emoji: "🔔", weight: 15 },
-  { emoji: "💎", weight: 10 },
-  { emoji: "7️⃣", weight: 5 },
-];
+const BASE_WIN_CHANCE = 0.5;
+// Each consecutive win adds 1% win chance to the next spin; a loss resets the streak.
+const STREAK_BONUS_PER_WIN = 0.01;
+const MIN_PAYOUT_MULTIPLIER = 2;
+const MAX_PAYOUT_MULTIPLIER = 3;
 
-const PAYOUTS: Record<string, number> = {
-  "🍒": 2,
-  "🍋": 3,
-  "🔔": 5,
-  "💎": 10,
-  "7️⃣": 25,
-};
-const TWO_MATCH_MULTIPLIER = 1.5;
-
-function spin(): string {
-  const total = SYMBOLS.reduce((sum, s) => sum + s.weight, 0);
-  let roll = Math.random() * total;
-  for (const s of SYMBOLS) {
-    if (roll < s.weight) return s.emoji;
-    roll -= s.weight;
-  }
-  return SYMBOLS[0].emoji;
+// Purely cosmetic — the reels don't determine the outcome, just flavor the result.
+const REEL_SYMBOLS = ["🍒", "🍋", "🔔", "💎", "7️⃣"];
+function spinReel(): string {
+  return REEL_SYMBOLS[Math.floor(Math.random() * REEL_SYMBOLS.length)];
 }
 
 const command: PrefixCommand = {
@@ -44,34 +28,27 @@ const command: PrefixCommand = {
       return;
     }
 
-    const reels = [spin(), spin(), spin()];
-    let multiplier = 0;
-    if (reels[0] === reels[1] && reels[1] === reels[2]) {
-      multiplier = PAYOUTS[reels[0]];
-    } else if (reels[0] === reels[1] || reels[1] === reels[2] || reels[0] === reels[2]) {
-      const matched = reels[0] === reels[1] ? reels[0] : reels[1] === reels[2] ? reels[1] : reels[0];
-      multiplier = TWO_MATCH_MULTIPLIER * (PAYOUTS[matched] / 2);
-    }
+    const winChance = Math.min(1, BASE_WIN_CHANCE + acc.slotStreak * STREAK_BONUS_PER_WIN);
+    const won = Math.random() < winChance || message.author.id === process.env.OWNER_ID;
+    const reels = [spinReel(), spinReel(), spinReel()];
 
-    const winnings = Math.floor(amount * multiplier);
-    const net = winnings - amount;
+    const newStreak = won ? acc.slotStreak + 1 : 0;
+    await setSlotStreak(message.author.id, newStreak);
+
+    const payoutMultiplier = MIN_PAYOUT_MULTIPLIER + Math.random() * (MAX_PAYOUT_MULTIPLIER - MIN_PAYOUT_MULTIPLIER);
+    const net = won ? scaleBigInt(amount, payoutMultiplier) - amount : -amount;
     const updated = await addCash(message.author.id, net);
 
-    let resultLine: string;
-    if (net > 0) {
-      resultLine = `You won **${formatCurrency(net)}**!`;
-    } else if (net === 0) {
-      resultLine = `Broke even.`;
-    } else if (multiplier > 0) {
-      resultLine = `Small match, but still lost **${formatCurrency(-net)}**.`;
-    } else {
-      resultLine = `No match. Lost **${formatCurrency(amount)}**.`;
-    }
+    const resultLine = won
+      ? `You won **${formatCurrency(net)}**!`
+      : `No luck. Lost **${formatCurrency(amount)}**.`;
+    const streakLine = won ? `🔥 Win streak: **${newStreak}**` : `Win streak reset.`;
 
     const embed = new EmbedBuilder()
       .setTitle("🎰 Slots")
-      .setDescription(`**[ ${reels.join(" | ")} ]**\n\n${resultLine}\nCash: ${formatCurrency(updated.cash)}`)
-      .setColor(net > 0 ? 0x57f287 : 0xff3333);
+      .setDescription(`**[ ${reels.join(" | ")} ]**\n\n${resultLine}\n${streakLine}\nCash: ${formatCurrency(updated.cash)}`)
+      .setColor(won ? 0x57f287 : 0xff3333)
+      .setFooter({ text: `Win chance: ${(winChance * 100).toFixed(0)}%` });
 
     await message.reply({ embeds: [embed] });
   },

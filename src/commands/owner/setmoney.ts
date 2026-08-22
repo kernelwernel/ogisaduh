@@ -8,10 +8,11 @@ const command: PrefixCommand = {
     if (message.author.id !== process.env.OWNER_ID) return;
 
     const target = message.mentions.users.first();
-    const amount = Math.floor(Number(args[1]));
+    const cleaned = args[1]?.replace(/,/g, "");
+    const amount = cleaned && /^\d+$/.test(cleaned) ? BigInt(cleaned) : null;
     const field = (args[2]?.toLowerCase() === "bank" ? "bank" : "cash") as "cash" | "bank";
 
-    if (!target || !Number.isFinite(amount) || amount < 0) {
+    if (!target || amount === null) {
       await message.reply("Usage: `$setmoney <@user> <amount> [cash|bank]`");
       return;
     }

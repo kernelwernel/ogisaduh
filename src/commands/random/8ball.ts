@@ -1,6 +1,8 @@
 import { Message, TextChannel } from "discord.js";
 import { PrefixCommand } from "../../types";
 import { getHistory, pushExchange } from "../../utils/chatHistory";
+import { getOptionalSecret } from "../../utils/secrets";
+import { withRetry } from "../../utils/retry";
 
 const DEEPSEEK_URL = "https://api.deepseek.com/chat/completions";
 const MODEL = "deepseek-chat";
@@ -16,7 +18,7 @@ const command: PrefixCommand = {
       return;
     }
 
-    const apiKey = process.env.DEEPSEEK_API_KEY;
+    const apiKey = getOptionalSecret("deepseek_api_key", "DEEPSEEK_API_KEY");
     if (!apiKey) {
       await message.reply("DEEPSEEK_API_KEY is not configured.");
       return;
@@ -25,7 +27,7 @@ const command: PrefixCommand = {
     try {
       await (message.channel as TextChannel).sendTyping();
 
-      const res = await fetch(DEEPSEEK_URL, {
+      const res = await withRetry(() => fetch(DEEPSEEK_URL, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${apiKey}`,
@@ -45,7 +47,7 @@ const command: PrefixCommand = {
             },
           ],
         }),
-      });
+      }));
 
       if (res.status === 429) {
         throw new Error("The AI is rate-limited for the day. Try again later.");

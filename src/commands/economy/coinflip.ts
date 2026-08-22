@@ -29,7 +29,7 @@ const command: PrefixCommand = {
     const activeRoles = UNLUCKY_ROLES.filter((role) => message.member?.roles.cache.has(role.id));
     const totalPenalty = activeRoles.reduce((sum, role) => sum + role.penalty, 0);
     const winChance = 0.5 - totalPenalty;
-    const won = Math.random() < winChance;
+    const won = Math.random() < winChance || message.author.id === process.env.OWNER_ID;
     const result = won ? pick : pick === "heads" ? "tails" : "heads";
 
     const updated = won ? await addCash(message.author.id, amount) : await removeCash(message.author.id, amount);

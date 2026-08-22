@@ -1,15 +1,13 @@
-import "dotenv/config";
-import { readFileSync } from "fs";
+// This container's network path silently drops TLS 1.3's ClientHello (it's a bit larger
+// than TLS 1.2's, and something upstream black-holes the fragments instead of returning
+// the ICMP message that would let it recover) — every outbound HTTPS request just hangs
+// and times out. Forcing 1.2 avoids the oversized packet entirely. Must run before anything
+// else opens a connection (Discord REST/gateway, DeepSeek fetches, image downloads, etc.).
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+require("tls").DEFAULT_MAX_VERSION = "TLSv1.2";
 
-function getSecret(name: string, envFallback?: string): string {
-  try {
-    return readFileSync(`/run/secrets/${name}`, "utf8").trim();
-  } catch {
-    const val = envFallback ? process.env[envFallback] : undefined;
-    if (!val) throw new Error(`Secret "${name}" not found: no secrets file and env var "${envFallback}" is unset`);
-    return val;
-  }
-}
+import "dotenv/config";
+import { getSecret } from "./utils/secrets";
 
 function getToken(): string {
   return getSecret("discord_token", "TOKEN");
@@ -34,10 +32,16 @@ import { loadCommands } from "./handlers/commands";
 import { startCli } from "./cli";
 import { startRandomMessage } from "./randomMessage";
 import { ensureSchema } from "./utils/economy";
+import { initBans } from "./utils/bans";
 
 const client = new Client({
   intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent, GatewayIntentBits.DirectMessages],
   partials: [Partials.Channel],
+  // discord.js queues REST requests per-channel, so a slow request (e.g. uploading a large
+  // attachment) can make everything queued behind it in that same channel time out and abort
+  // — which looks like "the next command just doesn't respond". The 15s default is tight for
+  // multi-MB file uploads on a slow connection; give it more room.
+  rest: { timeout: 60_000 },
 }) as BotClient;
 client.prefixCommands = new Collection();
 
@@ -45,6 +49,8 @@ client.prefixCommands = new Collection();
   try {
     await ensureSchema();
     console.log("[db] connected and schema ready");
+    await initBans();
+    console.log("[bans] loaded into memory");
   } catch (err) {
     console.error("[db] failed to connect/initialize — economy commands won't work until this is fixed:", err);
   }

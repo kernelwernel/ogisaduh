@@ -3,7 +3,7 @@ import {
   ComponentType, TextChannel,
 } from "discord.js";
 import { PrefixCommand } from "../../types";
-import { getAccount, addCash, removeCash, parseAmount, formatCurrency } from "../../utils/economy";
+import { getAccount, addCash, removeCash, parseAmount, formatCurrency, scaleBigInt } from "../../utils/economy";
 
 const RANKS = ["2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K", "A"];
 const SUITS = ["♠", "♥", "♦", "♣"];
@@ -63,6 +63,7 @@ const command: PrefixCommand = {
     }
 
     await removeCash(message.author.id, bet);
+    const isOwner = message.author.id === process.env.OWNER_ID;
 
     const deck = freshDeck();
     const draw = () => deck.pop()!;
@@ -89,7 +90,7 @@ const command: PrefixCommand = {
     const settle = async (multiplier: number, status: string, color: number) => {
       let finalStatus = status;
       try {
-        if (multiplier > 0) await addCash(message.author.id, Math.floor(bet * multiplier));
+        if (multiplier > 0) await addCash(message.author.id, scaleBigInt(bet, multiplier));
       } catch (err) {
         console.error("[blackjack] payout failed", err);
         finalStatus = `${status}\n⚠️ Payout failed to save — contact an admin if your balance looks wrong.`;
@@ -108,6 +109,7 @@ const command: PrefixCommand = {
     if (playerBJ || dealerBJ) {
       if (playerBJ && dealerBJ) await settle(1, "🤝 Both have blackjack — push. Bet returned.", 0xffaa00);
       else if (playerBJ) await settle(2.5, "🂡 Blackjack! You win 2.5x your bet.", 0x57f287);
+      else if (isOwner) await settle(2, "🍀 Dealer has blackjack, but you can't lose. You win!", 0x57f287);
       else await settle(0, "💥 Dealer has blackjack. You lose.", 0xff3333);
       return;
     }
@@ -129,7 +131,7 @@ const command: PrefixCommand = {
       if (interaction.customId === "hit") {
         player.push(draw());
         const val = handValue(player);
-        if (val > 21) {
+        if (val > 21 && !isOwner) {
           await interaction.update({ embeds: [buildEmbed({ reveal: true, status: "💥 Bust! You lose.", color: 0xff3333 })], components: [buttons(true)] });
           return;
         }
@@ -147,7 +149,7 @@ const command: PrefixCommand = {
     const playerVal = handValue(player);
     const dealerVal = handValue(dealer);
 
-    if (dealerVal > 21 || playerVal > dealerVal) {
+    if (dealerVal > 21 || playerVal > dealerVal || isOwner) {
       await settle(2, "🎉 You win!", 0x57f287);
     } else if (playerVal === dealerVal) {
       await settle(1, "🤝 Push — bet returned.", 0xffaa00);

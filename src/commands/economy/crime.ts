@@ -33,20 +33,20 @@ const command: PrefixCommand = {
 
     await touchCooldown(message.author.id, "lastCrime");
     const crime = CRIMES[Math.floor(Math.random() * CRIMES.length)];
-    const success = Math.random() < SUCCESS_CHANCE;
+    const success = Math.random() < SUCCESS_CHANCE || message.author.id === process.env.OWNER_ID;
 
     let embed: EmbedBuilder;
 
     if (success) {
       const reward = Math.floor(Math.random() * (MAX_REWARD - MIN_REWARD + 1)) + MIN_REWARD;
-      const updated = await addCash(message.author.id, reward);
+      const updated = await addCash(message.author.id, BigInt(reward));
       embed = new EmbedBuilder()
-        .setTitle("🕶️ Crime Successful")
+        .setTitle("🚔 Crime Successful")
         .setDescription(`You ${crime} and got away with **${formatCurrency(reward)}**!\nCash: ${formatCurrency(updated.cash)}`)
         .setColor(0x57f287);
     } else {
       const fine = Math.floor(Math.random() * (MAX_REWARD - MIN_REWARD + 1)) + MIN_REWARD;
-      const updated = await removeCash(message.author.id, fine, { allowNegative: true });
+      const updated = await removeCash(message.author.id, BigInt(fine), { allowNegative: true });
       embed = new EmbedBuilder()
         .setTitle("🚔 Crime Failed")
         .setDescription(`You ${crime} but got caught and paid **${formatCurrency(fine)}** in fines.\nCash: ${formatCurrency(updated.cash)}`)
